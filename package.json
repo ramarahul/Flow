@@ -1,0 +1,36 @@
+{
+  "name": "flow",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test .test-build/tests/domain.test.js .test-build/tests/background.test.js .test-build/tests/overlay.test.js .test-build/tests/actions.test.js .test-build/tests/goals.test.js",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test:tooling": "node --test tests/tooling/pipeline.test.mjs tests/tooling/publish.test.mjs",
+    "test:e2e": "playwright test",
+    "verify:extension": "node scripts/verify-extension.mjs",
+    "package:extension": "node scripts/package-extension.mjs",
+    "configure:github": "node scripts/configure-github.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/chrome": "^0.0.287",
+    "@types/node": "^18.19.130",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "fflate": "^0.8.3",
+    "prettier": "^3.9.10",
+    "typescript": "^5.7.2",
+    "vite": "^6.4.4",
+    "yaml": "^2.9.1"
+  }
+}

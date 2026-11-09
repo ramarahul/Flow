@@ -1,0 +1,11 @@
+{
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications",
+    "scripting",
+    "declarativeNetRequestWithHostAccess"
+  ],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "csp": "script-src 'self'; object-src 'none'; base-uri 'none'"
+}

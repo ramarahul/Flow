@@ -147,3 +147,32 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+.test-build/
+release/
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+
+# Local editor and coding-agent state
+/.idea/
+/.codex/
+/.agents/
+*.suo
+*.user
+*.swp
+*.swo
+*~
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Locally packed extensions and private signing keys
+*.crx
+*.pem
+
+# Local product and design-generation notes
+PRODUCT_REQUIREMENTS.md
+/assets/branding/prompt.txt
