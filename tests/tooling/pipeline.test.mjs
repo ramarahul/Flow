@@ -39,3 +39,12 @@ it("keeps publishing manual, main-only, environment-gated, and separate from pac
     assert(!/npm (?:ci|install)/.test(step.run ?? ""));
   }
 });
+
+it("pins the runner OS to the Ubuntu release supported by the locked browser tooling", async () => {
+  for (const file of ["ci.yml", "publish.yml"]) {
+    const workflow = parse(await readFile(`.github/workflows/${file}`, "utf8"));
+    for (const job of Object.values(workflow.jobs)) {
+      if (job["runs-on"]) assert.equal(job["runs-on"], "ubuntu-24.04");
+    }
+  }
+});

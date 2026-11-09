@@ -24,7 +24,7 @@ concurrency:
 jobs:
   quality:
     name: Quality
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -44,7 +44,7 @@ jobs:
   build:
     name: Build package
     needs: quality
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       artifact-name: flow-extension-${{ github.sha }}
@@ -72,7 +72,8 @@ jobs:
   e2e:
     name: Extension E2E
     needs: build
-    runs-on: ubuntu-latest
+    # Keep the browser host compatible with the locked Playwright version.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -103,7 +104,7 @@ jobs:
     name: PR gate
     if: ${{ always() }}
     needs: [quality, build, e2e]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - name: Require every stage to succeed

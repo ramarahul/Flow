@@ -16,6 +16,8 @@ still require the manual Chrome checklist in README. Unit tests cover their logi
 
 `PR gate` fails if any preceding stage fails or is skipped. There are no path filters.
 CI and release workflows have only `contents: read`; PRs receive no store secrets.
+Runners are pinned to Ubuntu 24.04 to match the locked Playwright browser tooling;
+review browser support before changing the runner OS.
 Actions are pinned to commit hashes; Dependabot proposes updates. No extension
 permission was added for this pipeline.
 
