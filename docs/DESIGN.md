@@ -77,9 +77,27 @@ their own white text. Do not inherit the dark-theme body text on a light hero ca
   use 24px; the timer uses 28px. Do not invent a new radius for every control.
 - Give text actions usable targets of at least 36px high, normally 40–44px for
   prominent actions. Avoid tiny unlabeled arrows or icon-only management toggles.
-- Keep transitions brief, around 160–180ms. Respect reduced-motion settings.
+- Use the solid, fluid interaction style: opaque surfaces, soft elevation, and
+  brief 180ms ease-out transitions using the shared motion tokens. The timer uses
+  a stronger soft compression and rounded corners on press, with a 420ms spring
+  release. Screens and countdowns appear immediately, without entrance animation,
+  translation, scaling, or bouncing. The navigation highlight uses a short 180ms
+  ease-out with no spring, and switch knobs stretch briefly while pressed.
+  Avoid hard pedestal shadows, glass, and backdrop blur.
+  Reduced-motion mode removes transitions, stretching,
+  compression, and corner changes.
 
 ## Component rules
+
+### Pointer response
+
+Mouse movement pushes a damped surface field that changes the background's light
+and violet shading. Render it behind opaque controls, never as emitted rings or
+particles on top of them. Keep text and controls stationary, with no blur or
+filters. Use a coarse bounded simulation, no React updates per movement, and stop
+rendering once the surface settles (at most 180 frames after movement). Disable
+and clear it for reduced motion and touch. This effect belongs to the popup only,
+never the website blocking overlay.
 
 ### Home
 

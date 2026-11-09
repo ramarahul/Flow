@@ -310,12 +310,43 @@ test("hides the home task selector without losing task selection or tracking", a
   ).toBeVisible();
 });
 
+test("liquid background settles, respects reduced motion, and leaves controls clickable", async ({
+  extension,
+}) => {
+  const { page } = extension;
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const wake = page.locator("canvas.liquid-background");
+  const paintedPixels = () =>
+    wake.evaluate((element) => {
+      const pixels = element
+        .getContext("2d")
+        .getImageData(0, 0, element.width, element.height).data;
+      let count = 0;
+      for (let i = 3; i < pixels.length; i += 4) if (pixels[i] > 0) count++;
+      return count;
+    });
+  await expect(wake).toBeVisible();
+  await page.mouse.move(80, 100);
+  await page.mouse.move(160, 160, { steps: 8 });
+  await expect.poll(paintedPixels).toBeGreaterThan(0);
+  await expect.poll(paintedPixels, { timeout: 8000 }).toBe(0);
+  await page.mouse.move(190, 180);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(wake).toBeHidden();
+  expect(await paintedPixels()).toBe(0);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.getByRole("button", { name: "Start 10 minute focus session" }).click();
+  await expect(page.getByRole("timer", { name: "Focus time remaining" })).toBeVisible();
+});
+
 test("keeps the countdown compact with accurate progress and reduced-motion support", async ({
   extension,
 }, testInfo) => {
   const { page, worker } = extension;
   await page.getByRole("button", { name: "Start 10 minute focus session" }).click();
   await expect(page.getByRole("timer", { name: "Focus time remaining" })).toBeVisible();
+  await expect(page.locator(".screen-content")).toHaveCSS("animation-name", "none");
+  await expect(page.getByRole("timer")).toHaveCSS("animation-name", "none");
   await expect(
     page.getByRole("progressbar", { name: "Focus target progress" }),
   ).toHaveCount(1);
@@ -336,6 +367,8 @@ test("keeps the countdown compact with accurate progress and reduced-motion supp
   ).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("focus-countdown.png") });
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await expect(page.locator(".screen-content")).toHaveCSS("animation-name", "none");
+  await expect(page.getByRole("timer")).toHaveCSS("animation-name", "none");
   await expect
     .poll(() =>
       page
