@@ -27,6 +27,11 @@ popup settings, task selection, timer transitions, historical graph navigation,
 and session history at popup width. Failure traces and screenshots are saved in
 `test-results/`; the HTML report is in `playwright-report/`.
 
+GitHub Actions also runs CodeQL analysis, which must finish successfully for
+`PR gate` to pass. Review its findings in GitHub's code-scanning view. CodeQL is
+not executed by the local commands above. See [release setup](../.github/RELEASING.md)
+for repository enablement and permissions.
+
 ## Manual release checklist
 
 Load the exact packaged build in Chrome 120 or newer. Automated checks do not
@@ -51,8 +56,9 @@ replace testing real website access, overlay rendering, or native notifications.
 5. **Tasks and goals:** create, rename, select, switch, archive, and restore tasks.
    Verify selected styling, disabled goals, scheduled weekdays, Quick Focus, and
    confirmation before switching. Recorded time must retain its original task.
-6. **Statistics:** check 7/30-day graph navigation, daily/weekly task totals, older
-   session expansion, midnight boundaries, and partial-session labels. No future
+6. **Statistics:** check calendar week/month/year navigation, synchronized task totals,
+   28–31 day months, 12 monthly year bars, upcoming dates, older session expansion,
+   midnight boundaries, and partial-session labels. No future
    graph periods or periods before the earliest saved record should be selectable.
 7. **Preferences and data:** test default durations, hidden duration selection,
    light/dark/system themes, keyboard focus, text scaling, and reduced motion.

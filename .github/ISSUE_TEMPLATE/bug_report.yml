@@ -1,0 +1,51 @@
+name: Bug report
+description: Report a problem with Flow.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For vulnerabilities, follow [SECURITY.md](https://github.com/ramarahul/Flow/blob/main/SECURITY.md) instead.
+        Issues are public. Remove private task names, website details, and credentials from screenshots. Do not attach exported backups.
+  - type: input
+    id: version
+    attributes:
+      label: Flow version
+      description: Find this at chrome://extensions → Flow → Details.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Chrome version and operating system
+      placeholder: Chrome version, Windows/macOS/Linux version
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation
+      options:
+        - Chrome Web Store
+        - Local unpacked build
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Use example tasks and domains rather than private data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include error text or a redacted screenshot if helpful.
+    validations:
+      required: true

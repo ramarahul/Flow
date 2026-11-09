@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
+import { compareVersions } from "./release-version.mjs";
 
 const api = "https://chromewebstore.googleapis.com";
 export async function publishStore({
@@ -72,6 +73,18 @@ export async function publishStore({
   );
   const headers = { Authorization: `Bearer ${token.access_token}` };
   const name = `publishers/${env.CWS_PUBLISHER_ID}/items/${env.CWS_EXTENSION_ID}`;
+  const current = await json(`${api}/v2/${name}:fetchStatus`, { headers });
+  const submitted = current.submittedItemRevisionStatus?.state;
+  assert(
+    !submitted ||
+      ["REJECTED", "CANCELLED", "PUBLISHED", "PUBLISHED_TO_TESTERS"].includes(submitted),
+    "An item is already under review or staged, or its status is unknown. Inspect the dashboard before uploading another package.",
+  );
+  for (const channel of current.publishedItemRevisionStatus?.distributionChannels ?? [])
+    assert(
+      compareVersions(meta.version, channel.crxVersion) > 0,
+      "The release version must be higher than every published channel version. No upload was sent.",
+    );
   let upload = await json(`${api}/upload/v2/${name}:upload`, {
     method: "POST",
     headers: { ...headers, "Content-Type": "application/zip" },

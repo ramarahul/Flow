@@ -42,17 +42,19 @@ function transport(states) {
 it("uploads a draft without publishing, and never logs credentials", async () => {
   const t = transport([
     { body: { access_token: "token" } },
+    { body: {} },
     { body: { uploadState: "SUCCEEDED", crxVersion: "1.0.0" } },
   ]);
   const logs = [];
   await publishStore({ env, read, fetcher: t.fetcher, log: (value) => logs.push(value) });
-  assert.equal(t.requests.length, 2);
+  assert.equal(t.requests.length, 3);
   assert(!logs.join().includes("secret"));
   assert(!logs.join().includes("token"));
 });
 it("waits for asynchronous upload, then submits with review and warning checks", async () => {
   const t = transport([
     { body: { access_token: "token" } },
+    { body: {} },
     { body: { uploadState: "IN_PROGRESS" } },
     { body: { lastAsyncUploadState: "SUCCEEDED" } },
     { body: { state: "PENDING_REVIEW" } },
@@ -64,8 +66,8 @@ it("waits for asynchronous upload, then submits with review and warning checks",
     sleep: async () => {},
     log: () => {},
   });
-  assert.match(t.requests[2].url, /:fetchStatus$/);
-  assert.deepEqual(JSON.parse(t.requests[3].options.body), {
+  assert.match(t.requests[3].url, /:fetchStatus$/);
+  assert.deepEqual(JSON.parse(t.requests[4].options.body), {
     publishType: "DEFAULT_PUBLISH",
     skipReview: false,
     blockOnWarnings: true,
@@ -74,6 +76,7 @@ it("waits for asynchronous upload, then submits with review and warning checks",
 it("fails closed on upload error, wrong ref, version, or checksum without submitting", async () => {
   const t = transport([
     { body: { access_token: "token" } },
+    { body: {} },
     { body: { uploadState: "FAILED" } },
   ]);
   await assert.rejects(
@@ -84,7 +87,7 @@ it("fails closed on upload error, wrong ref, version, or checksum without submit
       log: () => {},
     }),
   );
-  assert.equal(t.requests.length, 2);
+  assert.equal(t.requests.length, 3);
   for (const changed of [
     { GITHUB_REF: "refs/heads/feature" },
     { RELEASE_VERSION: "2.0.0" },
@@ -111,4 +114,19 @@ it("fails closed on upload error, wrong ref, version, or checksum without submit
       },
     }),
   );
+});
+
+it("refuses to overwrite an active review, staged item, or already-published version", async () => {
+  for (const status of [
+    { submittedItemRevisionStatus: { state: "PENDING_REVIEW" } },
+    { submittedItemRevisionStatus: { state: "STAGED" } },
+    { submittedItemRevisionStatus: { state: "UNEXPECTED_STATE" } },
+    { publishedItemRevisionStatus: { distributionChannels: [{ crxVersion: "1.0.0" }] } },
+    { publishedItemRevisionStatus: { distributionChannels: [{ crxVersion: "2.0.0" }] } },
+  ]) {
+    const t = transport([{ body: { access_token: "token" } }, { body: status }]);
+    await assert.rejects(publishStore({ env, read, fetcher: t.fetcher, log: () => {} }));
+    assert.equal(t.requests.length, 2);
+    assert(!t.requests.some((request) => request.url.endsWith(":upload")));
+  }
 });

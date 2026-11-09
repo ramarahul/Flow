@@ -182,8 +182,7 @@ test("edits recurring goals, archives and restores tasks, and keeps Quick Focus 
 }) => {
   const { page, worker } = extension;
   await task(page, "Reading", 120);
-  await page.getByRole("button", { name: "Manage tasks", exact: true }).click();
-  await page.getByRole("button", { name: "Edit task & goal" }).click();
+  await page.getByRole("button", { name: "Edit task: Reading", exact: true }).click();
   await page.getByLabel("Task name", { exact: true }).fill("Books");
   await page.getByLabel("Daily goal enabled").uncheck();
   await page.getByLabel("Every day").uncheck();
@@ -192,9 +191,11 @@ test("edits recurring goals, archives and restores tasks, and keeps Quick Focus 
   expect(data.tasks[0].name).toBe("Books");
   expect(data.goals[0].enabled).toBe(false);
   expect(data.goals[0].weekdays).toEqual([1, 2, 3, 4, 5]);
-  await page.getByRole("button", { name: "Archive", exact: true }).click();
-  await page.getByRole("button", { name: "Show archived tasks" }).click();
-  await page.getByRole("button", { name: "Restore", exact: true }).click();
+  await page.getByRole("button", { name: "Edit task: Books", exact: true }).click();
+  await page.getByRole("button", { name: "Archive task", exact: true }).click();
+  await page.getByRole("button", { name: "Archived tasks", exact: true }).click();
+  await page.getByRole("button", { name: "Edit task: Books", exact: true }).click();
+  await page.getByRole("button", { name: "Restore task", exact: true }).click();
   expect((await stored(worker)).tasks[0].archived).toBe(false);
   await page.getByRole("button", { name: "Back to timer" }).click();
   await page.getByRole("button", { name: /Select task/ }).click();
@@ -231,6 +232,84 @@ test("returns home without adding focus time when the completion window expires"
   expect(saved.history[0].focusMs).toBe(600000);
 });
 
+test("deletes a task with confirmation and retains the permanent default", async ({
+  extension,
+}) => {
+  const { page, worker } = extension;
+  await task(page, "Reading");
+  await select(page, "Reading");
+  await page.getByRole("button", { name: "Start 10 minute focus session" }).click();
+  const sessionId = (await stored(worker)).timer.session.id;
+  await page.getByRole("button", { name: /Select task/ }).click();
+  await expect(
+    page.getByRole("button", { name: "Delete task", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Edit task: Reading", exact: true }).click();
+  await page.getByRole("button", { name: "Delete task", exact: true }).click();
+  const confirmation = page.getByRole("alertdialog", { name: "Delete Reading?" });
+  await expect(confirmation).toContainText("continue as Quick Focus");
+  await confirmation.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect((await stored(worker)).tasks).toHaveLength(1);
+  await page.getByRole("button", { name: "Delete task", exact: true }).click();
+  await confirmation
+    .getByRole("button", { name: "Delete permanently", exact: true })
+    .click();
+  await expect(page.getByRole("button", { name: /^Reading/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Quick Focus/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  const data = await stored(worker);
+  expect(data.tasks).toHaveLength(0);
+  expect(data.goals).toHaveLength(0);
+  expect(data.timer.session.id).toBe(sessionId);
+  expect(data.timer.session.taskId).toBeNull();
+  await page.getByRole("button", { name: "Archived tasks", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^Quick Focus/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Edit task:/ })).toHaveCount(0);
+});
+
+test("hides the home task selector without losing task selection or tracking", async ({
+  extension,
+}) => {
+  const { page, worker, context, id } = extension;
+  await task(page, "Reading");
+  await select(page, "Reading");
+  const taskId = (await stored(worker)).selectedTaskId;
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const toggle = page.getByLabel("Show task on home", { exact: true });
+  await expect(toggle).toBeChecked();
+  await toggle.click();
+  await expect(toggle).not.toBeChecked();
+  await expect.poll(async () => (await stored(worker)).settings.showTask).toBe(false);
+  await page.getByRole("button", { name: "Flow timer", exact: true }).click();
+  await expect(page.getByRole("button", { name: /Select task/ })).toHaveCount(0);
+  await expect(
+    page.getByRole("progressbar", { name: "Daily goal progress" }),
+  ).toHaveCount(0);
+  await page.close();
+  const reopened = await context.newPage();
+  await reopened.goto(`chrome-extension://${id}/index.html`);
+  await expect(
+    reopened.getByRole("button", { name: "Start 10 minute focus session" }),
+  ).toBeVisible();
+  await expect(reopened.getByRole("button", { name: /Select task/ })).toHaveCount(0);
+  await reopened.getByRole("button", { name: "Start 10 minute focus session" }).click();
+  expect((await stored(worker)).timer.session.taskId).toBe(taskId);
+  await reopened.getByRole("button", { name: "Today's goals", exact: true }).click();
+  await expect(reopened.getByRole("button", { name: /^Reading/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await reopened.getByRole("button", { name: "Settings", exact: true }).click();
+  await reopened.getByLabel("Show task on home", { exact: true }).click();
+  await expect(reopened.getByLabel("Show task on home", { exact: true })).toBeChecked();
+  await reopened.getByRole("button", { name: "Flow timer", exact: true }).click();
+  await expect(
+    reopened.getByRole("button", { name: /Select task.*Reading/ }),
+  ).toBeVisible();
+});
+
 test("browses saved graph periods and expands older session history", async ({
   extension,
 }, testInfo) => {
@@ -256,20 +335,37 @@ test("browses saved graph periods and expands older session history", async ({
     await chrome.storage.local.set({ flow });
   });
   await page.getByRole("button", { name: "Statistics", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Last 7 days" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "This week" })).toBeVisible();
   await expect(page.locator(".session-row")).toHaveCount(5);
   await page.getByRole("button", { name: "Show 5 more sessions" }).click();
   await expect(page.locator(".session-row")).toHaveCount(7);
-  await page.getByRole("button", { name: "30 days", exact: true }).click();
-  await expect(page.locator(".week-bar-track")).toHaveCount(30);
-  await page.getByRole("button", { name: "Previous graph period" }).click();
-  await expect(page.getByRole("heading", { name: "30-day overview" })).toBeVisible();
-  await page.getByRole("button", { name: "Previous graph period" }).click();
+  await page.getByRole("button", { name: "Month", exact: true }).click();
+  const monthDays = await page.evaluate(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  });
+  await expect(page.locator(".week-bar-track")).toHaveCount(monthDays);
+  await page
+    .locator(".week-card")
+    .screenshot({ path: testInfo.outputPath("month-statistics.png") });
+  const previous = page.getByRole("button", { name: "Previous graph period" });
+  for (let index = 0; index < 4 && (await previous.isEnabled()); index++)
+    await previous.click();
   await expect(
     page.getByRole("button", { name: "Previous graph period" }),
   ).toBeDisabled();
-  await page.getByRole("button", { name: "Next graph period" }).click();
-  await page.getByRole("button", { name: "7 days", exact: true }).click();
+  await page.getByRole("button", { name: "Year", exact: true }).click();
+  await expect(page.locator(".week-bar-track")).toHaveCount(12);
+  const futureMonths = await page.evaluate(() => 11 - new Date().getMonth());
+  await expect(page.locator(".future-column")).toHaveCount(futureMonths);
+  await page
+    .locator(".week-card")
+    .screenshot({ path: testInfo.outputPath("year-statistics.png") });
+  await expect(page.locator(".task-history-row strong").first()).toHaveText(
+    await page.getByLabel("Focus in selected period", { exact: true }).innerText(),
+  );
+  await page.getByRole("button", { name: "Week", exact: true }).click();
+  await expect(page.locator(".week-bar-track")).toHaveCount(7);
   await expect(page.getByRole("button", { name: "Next graph period" })).toBeDisabled();
   await page.getByRole("heading", { name: "Your focus" }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath("statistics.png"), fullPage: true });

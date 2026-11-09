@@ -4,7 +4,8 @@
 
 Every PR targeting `main`, push to `main`, and merge-queue entry runs formatting,
 TypeScript checking, timer/background/overlay regression tests, release-tooling tests,
-and a high/critical dependency audit. It then builds and checks the extension's
+and a high/critical dependency audit. A parallel CodeQL job scans application and
+release-tooling JavaScript/TypeScript using the security-extended queries. CI then builds and checks the extension's
 version, permission allowlist, CSP, entry points, icons, and packaged files.
 
 Playwright installs the packaged extension into an isolated Chromium profile and
@@ -15,7 +16,10 @@ Chrome's optional-permission prompts, real website redirects and overlay renderi
 still require the [manual Chrome checklist](../docs/TESTING.md). Unit tests cover their logic.
 
 `PR gate` fails if any preceding stage fails or is skipped. There are no path filters.
-CI and release workflows have only `contents: read`; PRs receive no store secrets.
+Workflow defaults and the publishing job have only `contents: read`; PRs receive
+no store secrets. Only the CodeQL job receives `security-events: write` to upload
+findings and `actions: read` for analysis metadata. The reusable CI caller grants
+these permissions to verification, not to the credential-bearing publishing job.
 Runners are pinned to Ubuntu 24.04 to match the locked Playwright browser tooling;
 review browser support before changing the runner OS.
 Actions are pinned to commit hashes; Dependabot proposes updates. No extension
@@ -26,6 +30,23 @@ permission was added for this pipeline.
 Workflow files alone cannot prevent merges. Push these files to GitHub and let CI
 run once, then configure server-side protection. Nothing in this checkout has yet
 changed GitHub repository settings.
+
+CodeQL uses advanced setup through this workflow. If GitHub's CodeQL default
+setup is already enabled, switch to advanced setup to avoid conflicting analyses.
+Code scanning must be available and enabled for the repository; public repositories
+are supported, while private repositories require an eligible GitHub Code Security
+plan. A setup or upload failure fails `PR gate` rather than skipping the scan.
+See [GitHub's CodeQL setup guide](https://docs.github.com/en/code-security/how-tos/find-and-fix-code-vulnerabilities/configure-code-scanning/configuring-advanced-setup-for-code-scanning).
+
+Successful analysis is not a clean security audit. Review findings under Security
+and quality → Code scanning. To block merges based on alert severity, configure
+GitHub's code-scanning merge protection separately; the workflow gate checks that
+analysis completed successfully.
+
+Enable private vulnerability reporting in repository Settings → Advanced Security
+so [SECURITY.md](../SECURITY.md) provides a usable private reporting form. Adding
+the policy file does not enable that GitHub setting. No server settings are changed
+automatically by adding these files.
 
 1. Use Node 24 (`.node-version`) and `npm ci`. Preview with
    `npm run configure:github`.
@@ -83,24 +104,40 @@ them in Google/GitHub if exposed.
 
 ## Release a version
 
-1. Update `package.json`, `package-lock.json` (use `npm install --package-lock-only`),
-   and `public/manifest.json` to the same new version. Chrome updates require a higher
-   manifest version. Open a PR, wait for `PR gate`, then merge.
-2. Complete the [manual Chrome checklist](../docs/TESTING.md) using the CI package. CI artifacts
-   contain `flow-VERSION.zip`, its SHA-256 file, and `release.json`. The manifest is
-   at the ZIP root. Test with the actual Chrome/browser/OS versions you support.
-3. In Actions → **Chrome Web Store release** → Run workflow, choose **main**, enter
-   the exact version, and choose `upload` (default) for a draft or `submit` to upload
-   and request store review. Review and approve the environment deployment.
-4. The workflow reruns all CI stages, then uploads the exact checksum-verified
-   package tested by Chromium in that run. It verifies the commit and version,
-   waits for asynchronous upload, and fails on errors before publication.
-   `submit` requests normal review with warning checks enabled; it does not bypass
-   review or guarantee immediate publication. Monitor the Developer Dashboard.
+Start with [the release guide](../docs/RELEASES.md), which explains when to release,
+which version to choose, and the preparation command. Do not upload another build
+over the first submission while it is under review.
 
-There is no automatic publication on PRs, pushes, or dependency updates, and no
-GitHub release or tag is created. Do not rerun an upload for an already-used store
-version; inspect the dashboard first and bump the version for the next update.
+For opt-in automation, create the **repository variable** `CWS_AUTO_RELEASE` with
+the exact value `true` under Settings → Secrets and variables → Actions → Variables.
+Only enable it after the first release is published and the main-only protected
+environment, required reviewers, API credentials, and CodeQL setup are working.
+This variable contains no credential. Keeping it unset or `false` disables
+automatic submissions without disabling manual releases.
+
+When a higher version is merged to `main`, the release workflow compares it with
+the previous main commit, checks all version files and changelog notes, reruns the
+full CI workflow, and waits for the `chrome-web-store` environment approval. It
+then uploads the exact tested package and submits it for normal store review.
+Ordinary feature merges and dependency updates with no Flow version change do not
+submit anything. Initial branch pushes do not automatically publish.
+
+For a manual release, use Actions → **Chrome Web Store release** → Run workflow,
+choose **main**, enter its exact version, and select `upload` for a draft or `submit`
+for review. This runs the same validation and protected publishing job regardless
+of the automation variable. A draft is not a publication. Use the dashboard to
+submit an already-uploaded draft rather than uploading the same version again.
+
+The publisher checks store status before upload and refuses an active review,
+staged submission, unknown submission state, or a version that is not higher than
+the published channels. It does not cancel reviews, override approvals, retry
+uploads automatically, or bypass Google's review. Check the Developer Dashboard
+after a failed or interrupted release before retrying.
+
+No tags or GitHub Releases are created. Automatic store submission happens only
+after an intentional version increase on main with automation enabled and all
+configured checks and approvals satisfied. Keep the tested artifact and workflow
+commit as the release record. See [Google's update process](https://developer.chrome.com/docs/webstore/update).
 
 ## Local verification
 

@@ -40,7 +40,7 @@ export function taskLabel(data: Data, id: string | null | undefined) {
   const task = data.tasks.find((task) => task.id === id);
   return task
     ? `${task.icon ? task.icon + " " : ""}${task.name}${task.archived ? " (archived)" : ""}`
-    : "Unavailable task";
+    : "Deleted task";
 }
 export function focusDuration(ms: number) {
   const minutes = Math.floor(ms / minute);

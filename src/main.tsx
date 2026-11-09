@@ -180,7 +180,9 @@ function App() {
         <div className="loading">Opening your workspace…</div>
       ) : view === "timer" ? (
         <>
-          <TaskPicker data={data} now={now} onOpen={() => setView("tasks")} />
+          {s.showTask && (
+            <TaskPicker data={data} now={now} onOpen={() => setView("tasks")} />
+          )}
           <section
             className={"timer " + (isBreak ? "on-break" : "")}
             aria-label="Session timer"
@@ -374,6 +376,18 @@ function App() {
           <p className="quiet">
             Turn this off for a single-button home screen. The timer will use your default
             focus duration above.
+          </p>
+          <label className="setting">
+            Show task on home
+            <input
+              type="checkbox"
+              checked={s.showTask}
+              onChange={(event) => update({ showTask: event.target.checked })}
+            />
+          </label>
+          <p className="quiet">
+            Hide the task selector and goal progress on home. Your selected task still
+            tracks time. Manage tasks from Today's goals in the header.
           </p>
           <label className="setting">
             Notifications

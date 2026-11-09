@@ -73,8 +73,8 @@ it("shows factual statistics, partial history and a clear Back to timer action",
   );
   assert.match(html, /Back to timer/);
   assert.match(html, /Focused today/);
-  assert.match(html, /Last 7 days/);
-  assert.match(html, /Finished sessions<\/span><strong>1<\/strong>/);
+  assert.match(html, /This week/);
+  assert.match(html, /All-time sessions<\/span><strong>1<\/strong>/);
   assert.match(html, /Ended early/);
   assert.match(html, /0:30/);
   assert.equal((html.match(/class="session-row"/g) || []).length, 2);
@@ -125,7 +125,10 @@ it("provides Quick Focus and task-management access in a separate selection scre
   assert.match(html, /Quick Focus/);
   assert.match(html, /Reading/);
   assert.match(html, /New task/);
-  assert.match(html, /Manage tasks/);
+  assert.match(html, /Edit task: Reading/);
+  assert.doesNotMatch(html, /task-management|task-filters/);
+  assert.doesNotMatch(html, />Delete</);
+  assert.doesNotMatch(html, /Manage tasks/);
   assert.match(html, /Not scheduled today/);
   assert(html.indexOf("New task") < html.indexOf("Quick Focus"));
 });

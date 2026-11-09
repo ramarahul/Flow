@@ -16,7 +16,8 @@ export interface DailyGoal {
 export type GoalInput = Pick<DailyGoal, "targetMinutes" | "weekdays" | "enabled">;
 export type TaskAction =
   | { type: "saveTask"; taskId?: string; name: string; icon?: string; goal: GoalInput }
-  | { type: "archiveTask"; taskId: string; archived: boolean };
+  | { type: "archiveTask"; taskId: string; archived: boolean }
+  | { type: "deleteTask"; taskId: string };
 function taskName(raw: unknown) {
   if (typeof raw !== "string") throw new Error("Enter a task name.");
   const name = raw.normalize("NFC").trim().replace(/\s+/g, " ");
@@ -102,6 +103,19 @@ export function validateCatalog(
   return { tasks: checkedTasks, goals: checkedGoals };
 }
 export function updateTasks(data: Data, action: TaskAction, id: string) {
+  if (action.type === "deleteTask") {
+    if (
+      typeof action.taskId !== "string" ||
+      !data.tasks.some((task) => task.id === action.taskId)
+    )
+      throw new Error(
+        "Task not found. Quick Focus is the permanent default and cannot be deleted.",
+      );
+    data.tasks = data.tasks.filter((task) => task.id !== action.taskId);
+    data.goals = data.goals.filter((goal) => goal.taskId !== action.taskId);
+    if (data.selectedTaskId === action.taskId) data.selectedTaskId = null;
+    return;
+  }
   if (action.type === "archiveTask") {
     const task = data.tasks.find((task) => task.id === action.taskId);
     if (!task || typeof action.archived !== "boolean") throw new Error("Task not found.");

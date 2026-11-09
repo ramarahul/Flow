@@ -1,0 +1,8 @@
+name: Flow application and release tooling
+
+paths:
+  - src
+  - scripts
+
+queries:
+  - uses: security-extended

@@ -9,7 +9,7 @@ it("protects PR jobs and gates on every stage, including merge-queue checks", as
   assert.deepEqual(ci.on.pull_request.branches, ["main"]);
   assert("merge_group" in ci.on);
   assert(!("pull_request_target" in ci.on));
-  assert.deepEqual(ci.jobs.gate.needs, ["quality", "build", "e2e"]);
+  assert.deepEqual(ci.jobs.gate.needs, ["quality", "build", "e2e", "security"]);
   assert.match(ci.jobs.gate.if, /always/);
   for (const job of Object.values(ci.jobs))
     for (const step of job.steps ?? []) {
@@ -26,13 +26,45 @@ it("protects PR jobs and gates on every stage, including merge-queue checks", as
     "PR gate",
   );
 });
-it("keeps publishing manual, main-only, environment-gated, and separate from package installs", async () => {
+
+it("limits security scanning permissions and keeps publishing credentials isolated", async () => {
+  const ci = parse(await readFile(".github/workflows/ci.yml", "utf8"));
+  assert.deepEqual(ci.jobs.security.permissions, {
+    contents: "read",
+    actions: "read",
+    "security-events": "write",
+  });
+  assert(
+    ci.jobs.security.steps.some((step) =>
+      step.uses?.startsWith("github/codeql-action/analyze@"),
+    ),
+  );
+  assert.equal(
+    ci.jobs.security.steps.find((step) =>
+      step.uses?.startsWith("github/codeql-action/init@"),
+    ).with["build-mode"],
+    "none",
+  );
+  assert.match(ci.jobs.gate.steps[0].run, /test "\$SECURITY" = success/);
+  const release = parse(await readFile(".github/workflows/publish.yml", "utf8"));
+  assert.deepEqual(release.permissions, { contents: "read" });
+  assert.equal(release.jobs.publish.permissions, undefined);
+  assert.equal(release.jobs.verify.permissions["security-events"], "write");
+});
+it("gates automatic version releases and manual drafts on main, verification, and environment approval", async () => {
   const workflow = parse(await readFile(".github/workflows/publish.yml", "utf8"));
-  assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
+  assert.deepEqual(workflow.on.push.branches, ["main"]);
+  assert("workflow_dispatch" in workflow.on);
   assert.equal(workflow.on.workflow_dispatch.inputs.mode.default, "upload");
   assert.match(workflow.jobs.publish.if, /refs\/heads\/main/);
   assert.equal(workflow.jobs.publish.environment, "chrome-web-store");
-  assert.equal(workflow.jobs.publish.needs, "verify");
+  assert.deepEqual(workflow.jobs.publish.needs, ["plan", "verify"]);
+  assert.equal(workflow.jobs.verify.needs, "plan");
+  assert.match(workflow.jobs.verify.if, /needs.plan.outputs.release == 'true'/);
+  assert.equal(
+    workflow.jobs.plan.steps.find((step) => step.id === "plan").env.AUTO_RELEASE,
+    "${{ vars.CWS_AUTO_RELEASE }}",
+  );
   assert.equal(workflow.jobs.verify.uses, "./.github/workflows/ci.yml");
   for (const step of workflow.jobs.publish.steps) {
     if (step.uses) assert.match(step.uses, /@[a-f0-9]{40}$/);

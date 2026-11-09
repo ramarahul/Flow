@@ -10,12 +10,10 @@ import {
 } from "lucide-react";
 import { daily, elapsed, focusTime, focusSegments, type Data } from "./domain.js";
 import { TaskHistory } from "./TaskHistory.js";
-import { taskLabel } from "./goals.js";
+import { taskLabel, focusDuration } from "./goals.js";
+import { periodStatistics, type StatsPeriod } from "./statistics.js";
 
-const duration = (ms: number) => {
-  const minutes = Math.floor(ms / 60000);
-  return minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`;
-};
+const duration = focusDuration;
 const precise = (ms: number) => {
   const seconds = Math.floor(ms / 1000);
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
@@ -57,12 +55,21 @@ export function StatsView({
   onBack: () => void;
 }) {
   const second = Math.floor(now / 1000);
-  const [period, setPeriod] = useState(7);
+  const [period, setPeriod] = useState<StatsPeriod>("week");
   const [offset, setOffset] = useState(0);
   const [historyLimit, setHistoryLimit] = useState(5);
-  const end = new Date(now);
-  end.setDate(end.getDate() + offset);
-  const days = useMemo(() => daily(data, +end, period), [data, second, period, offset]);
+  const selected = useMemo(
+    () => periodStatistics(data, now, period, offset),
+    [data, second, period, offset],
+  );
+  const days = selected.buckets;
+  const date = (value: number) =>
+    new Date(value).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  const periodLabel = `${date(selected.start)} – ${date(selected.end - 1)}`;
   const today = useMemo(() => daily(data, now, 1)[0].ms, [data, second]);
   const earliest = useMemo(
     () =>
@@ -88,7 +95,6 @@ export function StatsView({
           elapsed(data.timer, now),
         )
       : 0);
-  const week = days.reduce((sum, day) => sum + day.ms, 0);
   const max = Math.max(1, ...days.map((day) => day.ms));
 
   return (
@@ -114,12 +120,23 @@ export function StatsView({
       </div>
       <div className="week-card">
         <div className="stats-card-title">
-          <h2>{offset === 0 ? `Last ${period} days` : `${period}-day overview`}</h2>
-          <span>{duration(week)}</span>
+          <h2>
+            {offset === 0
+              ? `This ${period}`
+              : period === "year"
+                ? new Date(selected.start).getFullYear()
+                : period === "month"
+                  ? new Date(selected.start).toLocaleDateString(undefined, {
+                      month: "long",
+                      year: "numeric",
+                    })
+                  : "Week overview"}
+          </h2>
+          <span aria-label="Focus in selected period">{duration(selected.total)}</span>
         </div>
         <div className="chart-controls">
           <div className="history-period" aria-label="Graph range">
-            {[7, 30].map((value) => (
+            {(["week", "month", "year"] as const).map((value) => (
               <button
                 key={value}
                 aria-pressed={period === value}
@@ -128,7 +145,7 @@ export function StatsView({
                   setOffset(0);
                 }}
               >
-                {value} days
+                {value[0].toUpperCase() + value.slice(1)}
               </button>
             ))}
           </div>
@@ -136,8 +153,8 @@ export function StatsView({
             <button
               className="icon"
               aria-label="Previous graph period"
-              disabled={+days[0].date <= earliest}
-              onClick={() => setOffset(offset - period)}
+              disabled={selected.start <= earliest}
+              onClick={() => setOffset(offset - 1)}
             >
               <ChevronLeft size={18} />
             </button>
@@ -145,60 +162,67 @@ export function StatsView({
               className="icon"
               aria-label="Next graph period"
               disabled={offset === 0}
-              onClick={() => setOffset(Math.min(0, offset + period))}
+              onClick={() => setOffset(Math.min(0, offset + 1))}
             >
               <ChevronRight size={18} />
             </button>
           </div>
         </div>
-        <p className="chart-date-range">
-          {days[0].date.toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}{" "}
-          –{" "}
-          {days[days.length - 1].date.toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
-        </p>
+        <p className="chart-date-range">{periodLabel}</p>
         <div
-          className={`week-chart ${period === 30 ? "month-chart" : ""}`}
+          className={`week-chart ${period === "month" ? "month-chart" : period === "year" ? "year-chart" : ""}`}
           role="img"
           aria-label={days
             .map(
               (day) =>
-                `${day.date.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}: ${duration(day.ms)}`,
+                `${day.date.toLocaleDateString(undefined, { month: "short", day: period === "year" ? undefined : "numeric", year: "numeric" })}: ${day.upcoming ? "Upcoming" : duration(day.ms)}`,
             )
             .join("; ")}
         >
           {days.map((day, index) => (
             <div
-              className={offset === 0 && index === days.length - 1 ? "today-column" : ""}
+              className={
+                day.upcoming
+                  ? "future-column"
+                  : day.start <= now && now < day.end
+                    ? "today-column"
+                    : ""
+              }
               key={+day.date}
-              title={`${day.date.toLocaleDateString()}: ${duration(day.ms)}`}
+              title={`${day.date.toLocaleDateString(undefined, { month: "long", day: period === "year" ? undefined : "numeric", year: "numeric" })}: ${day.upcoming ? "Upcoming" : duration(day.ms)}`}
             >
-              {period === 7 && <small>{duration(day.ms)}</small>}
+              {period === "week" && (
+                <small>{day.upcoming ? "—" : duration(day.ms)}</small>
+              )}
               <div className="week-bar-track">
                 <span style={{ height: `${(day.ms / max) * 100}%` }} />
               </div>
               <span>
-                {period === 7
-                  ? day.date
-                      .toLocaleDateString(undefined, { weekday: "short" })
-                      .slice(0, 2)
-                  : index % 7 === 0 || index === days.length - 1
-                    ? day.date.getDate()
-                    : ""}
+                {period === "year"
+                  ? day.date.toLocaleDateString(undefined, { month: "short" })
+                  : period === "week"
+                    ? day.date
+                        .toLocaleDateString(undefined, { weekday: "short" })
+                        .slice(0, 2)
+                    : index === days.length - 1 ||
+                        (index % 7 === 0 && days.length - 1 - index >= 4)
+                      ? day.date.getDate()
+                      : ""}
               </span>
             </div>
           ))}
         </div>
-        {!week && <p className="chart-empty">Your focused minutes will appear here.</p>}
+        {days.some((day) => day.upcoming) && (
+          <p className="chart-upcoming-note">
+            Dashed tracks mark upcoming {period === "year" ? "months" : "days"}.
+          </p>
+        )}
+        {!selected.total && (
+          <p className="chart-empty">No focused time recorded in this period.</p>
+        )}
       </div>
-      <div className="metric-cards">
+      <TaskHistory data={data} totals={selected.taskTotals} periodLabel={periodLabel} />
+      <div className="metric-cards" role="group" aria-label="Overall statistics">
         <div>
           <Clock3 size={17} />
           <span>All-time focus</span>
@@ -206,12 +230,12 @@ export function StatsView({
         </div>
         <div>
           <CheckCircle2 size={17} />
-          <span>Finished sessions</span>
+          <span>All-time sessions</span>
           <strong>{completed}</strong>
         </div>
         <div>
           <Coffee size={17} />
-          <span>Time on breaks</span>
+          <span>All-time breaks</span>
           <strong>{duration(breaks)}</strong>
         </div>
         <div>
@@ -220,10 +244,9 @@ export function StatsView({
           <strong>{streak}</strong>
         </div>
       </div>
-      <TaskHistory data={data} now={now} />
       <div className="session-history-card">
         <div className="stats-card-title">
-          <h2>Session history</h2>
+          <h2>All sessions</h2>
           <span>{data.history.length}</span>
         </div>
         {!data.history.length ? (
@@ -244,6 +267,7 @@ export function StatsView({
                       {new Date(session.startedAt).toLocaleDateString(undefined, {
                         month: "short",
                         day: "numeric",
+                        year: "numeric",
                       })}
                     </strong>
                     <small>

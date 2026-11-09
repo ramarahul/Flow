@@ -1,6 +1,9 @@
 name: Chrome Web Store release
 
 on:
+  push:
+    branches: [main]
+    paths: [package.json, package-lock.json, public/manifest.json]
   workflow_dispatch:
     inputs:
       version:
@@ -22,14 +25,44 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  verify:
+  plan:
+    name: Check version and release intent
     if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      release: ${{ steps.plan.outputs.release }}
+      version: ${{ steps.plan.outputs.version }}
+      mode: ${{ steps.plan.outputs.mode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - id: plan
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          REQUESTED_MODE: ${{ inputs.mode }}
+          AUTO_RELEASE: ${{ vars.CWS_AUTO_RELEASE }}
+        run: node scripts/release-plan.mjs
+
+  verify:
+    needs: plan
+    if: ${{ needs.plan.outputs.release == 'true' }}
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
     uses: ./.github/workflows/ci.yml
 
   publish:
     name: Upload or submit tested package
-    needs: verify
-    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: [plan, verify]
+    if: ${{ github.ref == 'refs/heads/main' && needs.plan.outputs.release == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: chrome-web-store
@@ -48,8 +81,8 @@ jobs:
       # No npm install, browser, or dependency lifecycle scripts in this job.
       - name: Upload and optionally submit to review
         env:
-          RELEASE_VERSION: ${{ inputs.version }}
-          RELEASE_MODE: ${{ inputs.mode }}
+          RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+          RELEASE_MODE: ${{ needs.plan.outputs.mode }}
           CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
           CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
           CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}

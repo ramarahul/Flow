@@ -4,3 +4,5 @@
 /public/manifest.json @ramarahul
 /package*.json @ramarahul
 /tests/e2e/ @ramarahul
+/SECURITY.md @ramarahul
+/PRIVACY_POLICY.md @ramarahul

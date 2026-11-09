@@ -72,6 +72,13 @@ remains until you reset it in Flow's Settings, remove the extension, or clear it
 stored data through browser or device controls. Renaming or archiving a task does
 not delete its historical focus records.
 
+Deleting a task removes its name, icon, and goal from the task catalog. Previously
+recorded focus intervals retain their task identifier for accurate accounting and
+are displayed as "Deleted task". If that task is running, future focused time is
+assigned to Quick Focus without restarting the timer. To remove the retained
+session records as well, reset Flow's data. Earlier exported backups remain
+separate and may still contain the deleted task's name.
+
 You can delete individual blocklist domains in Settings when no session is active.
 To delete all information stored by Flow, end the active session and use the reset
 control in Settings. Removing Flow also removes its extension-local storage.

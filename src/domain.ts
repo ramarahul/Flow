@@ -43,6 +43,7 @@ export interface Settings {
   sites: string[];
   theme: "system" | "light" | "dark";
   showDuration: boolean;
+  showTask: boolean;
 }
 export interface Data {
   version: 2;
@@ -79,6 +80,7 @@ export const defaults = (): Data => ({
     sites: [],
     theme: "system",
     showDuration: true,
+    showTask: true,
   },
   history: [],
   tasks: [],
@@ -244,6 +246,7 @@ export function migrate(input: unknown, now: number): Data {
     d.defaultsVersion = 3;
   }
   d.settings.showDuration ??= true;
+  d.settings.showTask ??= true;
   // Previously paused focus sessions must no longer be resumable after upgrading.
   if (d.timer.mode === "focus" && d.timer.paused) d = reduce(d, { type: "pause" }, now);
   if (d.timer.mode === "breakDone") archive(d, now, "finished");
@@ -296,6 +299,20 @@ export function reduce(
   }
   if (action.type === "settings") {
     d.settings = validateSettings({ ...d.settings, ...action.settings });
+    return d;
+  }
+  if (action.type === "deleteTask") {
+    if (t.session && t.session.taskId === action.taskId) {
+      const next = reduce(
+        d,
+        { type: "selectTask", taskId: null, confirm: true },
+        now,
+        id,
+      );
+      updateTasks(next, action, id);
+      return next;
+    }
+    updateTasks(d, action, id);
     return d;
   }
   if (action.type === "saveTask" || action.type === "archiveTask") {
@@ -432,6 +449,7 @@ export function validateSettings(raw: unknown): Settings {
     typeof s.sound !== "boolean" ||
     typeof s.blocking !== "boolean" ||
     (s.showDuration !== undefined && typeof s.showDuration !== "boolean") ||
+    (s.showTask !== undefined && typeof s.showTask !== "boolean") ||
     !["system", "light", "dark"].includes(s.theme) ||
     !Array.isArray(s.sites) ||
     s.sites.length > 100
@@ -445,6 +463,7 @@ export function validateSettings(raw: unknown): Settings {
     blocking: s.blocking,
     theme: s.theme,
     showDuration: s.showDuration ?? true,
+    showTask: s.showTask ?? true,
     sites: [...new Set(s.sites.map((v) => site(v)))],
   };
 }
