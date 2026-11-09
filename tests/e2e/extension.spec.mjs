@@ -85,10 +85,24 @@ test("loads the real extension and persists a single-button home preference", as
     page.getByRole("button", { name: "Start 10 minute focus session" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByLabel("Show duration on home").uncheck();
+  // Exercise asynchronous saves even on machines with a fast service worker.
+  await page.evaluate(() => {
+    const send = chrome.runtime.sendMessage.bind(chrome.runtime);
+    chrome.runtime.sendMessage = async (message) => {
+      if (message.action?.type === "settings")
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      return send(message);
+    };
+  });
+  const showDuration = page.getByLabel("Show duration on home");
+  await expect(showDuration).toBeChecked();
+  await showDuration.click();
+  await expect(showDuration).not.toBeChecked();
+  await expect.poll(async () => (await stored(worker)).settings.showDuration).toBe(false);
   const focus = page.getByRole("spinbutton").first();
   await focus.fill("20");
   await focus.press("Tab");
+  await expect.poll(async () => (await stored(worker)).settings.focus).toBe(20);
   await page.getByRole("button", { name: "Flow timer" }).click();
   await expect(
     page.getByRole("button", { name: "Start 20 minute focus session" }),
