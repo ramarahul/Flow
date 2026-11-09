@@ -91,13 +91,19 @@ their own white text. Do not inherit the dark-theme body text on a light hero ca
 
 ### Pointer response
 
-Mouse movement pushes a damped surface field that changes the background's light
-and violet shading. Render it behind opaque controls, never as emitted rings or
-particles on top of them. Keep text and controls stationary, with no blur or
-filters. Use a coarse bounded simulation, no React updates per movement, and stop
-rendering once the surface settles (at most 180 frames after movement). Disable
-and clear it for reduced motion and touch. This effect belongs to the popup only,
-never the website blocking overlay.
+Mouse movement pushes a damped surface field that changes light and violet shading
+across the background and inside controls. Preserve the original vigorous wave
+response: direct pointer pressure and lively outward propagation. Do not replace
+it with heavy damping, directional transport, or a smoothed trailing current.
+Use one faint, pointer-transparent
+canvas above the surfaces. Boxes, text, and hit targets remain stationary; never
+translate them, distort glyphs, blur content, or emit rings/particles. Keep the
+existing button press feedback separate. Use a coarse bounded simulation, no
+React updates per movement, and stop rendering once the surface settles (at most
+180 frames after movement). Settings includes **Liquid surface effect**, enabled
+by default and saved locally. Turning it off removes the canvas and its listeners
+immediately. Reduced motion and touch disable and clear the effect too. This
+belongs to the popup only, never the website blocking overlay.
 
 ### Home
 
@@ -142,9 +148,12 @@ Do not replace clear labels with an unexplained sliders icon or ellipsis menu.
 
 Use the existing full-width Back to timer control, an ivory Today card, a violet
 graph, and compact supporting totals. Keep the graph ahead of secondary metrics.
-Use one Week / Month / Year selector and explicit date ranges. Weeks start Monday;
+Use one Day / Week / Month / Year dropdown and explicit date ranges. Day bars
+represent local hours, including 23/25-hour daylight-saving days. Weeks start Monday;
 week/month bars represent days, and year bars represent months. Graph totals and
-Focus by task use the same period and navigation. Do not add a separate date picker
+Focus by task use the same period and navigation. Previous remains available for
+empty earlier periods; Next returns toward the current period and is disabled
+only at the current period. Do not add a separate date picker
 or independent period selector to the task breakdown. Mark future buckets as
 upcoming with dashed tracks and text, rather than treating them as missed focus.
 Keep Today and clearly labeled all-time summaries separate from the selected

@@ -44,6 +44,7 @@ export interface Settings {
   theme: "system" | "light" | "dark";
   showDuration: boolean;
   showTask: boolean;
+  liquidEffect: boolean;
 }
 export interface Data {
   version: 2;
@@ -81,6 +82,7 @@ export const defaults = (): Data => ({
     theme: "system",
     showDuration: true,
     showTask: true,
+    liquidEffect: true,
   },
   history: [],
   tasks: [],
@@ -247,6 +249,7 @@ export function migrate(input: unknown, now: number): Data {
   }
   d.settings.showDuration ??= true;
   d.settings.showTask ??= true;
+  d.settings.liquidEffect ??= true;
   // Previously paused focus sessions must no longer be resumable after upgrading.
   if (d.timer.mode === "focus" && d.timer.paused) d = reduce(d, { type: "pause" }, now);
   if (d.timer.mode === "breakDone") archive(d, now, "finished");
@@ -450,6 +453,7 @@ export function validateSettings(raw: unknown): Settings {
     typeof s.blocking !== "boolean" ||
     (s.showDuration !== undefined && typeof s.showDuration !== "boolean") ||
     (s.showTask !== undefined && typeof s.showTask !== "boolean") ||
+    (s.liquidEffect !== undefined && typeof s.liquidEffect !== "boolean") ||
     !["system", "light", "dark"].includes(s.theme) ||
     !Array.isArray(s.sites) ||
     s.sites.length > 100
@@ -464,6 +468,7 @@ export function validateSettings(raw: unknown): Settings {
     theme: s.theme,
     showDuration: s.showDuration ?? true,
     showTask: s.showTask ?? true,
+    liquidEffect: s.liquidEffect ?? true,
     sites: [...new Set(s.sites.map((v) => site(v)))],
   };
 }

@@ -11,7 +11,7 @@ focus statistics.
 - Block distracting domains, including already-open websites, after granting
   optional website access.
 - Browse calendar week, month, and year graphs with matching task totals and saved
-  session history. Weeks start on Monday; yearly bars represent months.
+  session history. Day graphs show hours in local time. Weeks start on Monday; yearly bars represent months.
 - Expand **All sessions** in Stats to browse saved records, five per page. Collapse
   it again to keep the overview compact.
 - Choose light, dark, or system appearance. Hide the home duration selector for a

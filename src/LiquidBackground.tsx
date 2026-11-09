@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
 
-// A damped height field bends the background light; controls remain stationary.
-export function LiquidBackground() {
+// A pointer-transparent light field reacts across the canvas and control surfaces.
+export function LiquidBackground({ enabled }: { enabled: boolean }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
+    if (!enabled) return;
     const element = canvas.current;
     const popup = element?.parentElement;
     const context = element?.getContext("2d", { alpha: true });
@@ -110,6 +111,7 @@ export function LiquidBackground() {
       motion.removeEventListener("change", stop);
       coarse.removeEventListener("change", stop);
     };
-  }, []);
+  }, [enabled]);
+  if (!enabled) return null;
   return <canvas className="liquid-background" ref={canvas} aria-hidden="true" />;
 }

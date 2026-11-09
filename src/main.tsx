@@ -129,7 +129,7 @@ function App() {
   };
   return (
     <main data-view={view}>
-      <LiquidBackground />
+      <LiquidBackground enabled={s.liquidEffect} />
       <header>
         <button
           className="brand"
@@ -394,6 +394,18 @@ function App() {
             <p className="quiet">
               Hide the task selector and goal progress on home. Your selected task still
               tracks time. Manage tasks from Today's goals in the header.
+            </p>
+            <label className="setting">
+              Liquid surface effect
+              <input
+                type="checkbox"
+                checked={s.liquidEffect}
+                onChange={(event) => update({ liquidEffect: event.target.checked })}
+              />
+            </label>
+            <p className="quiet">
+              Let the background and button surfaces react to your pointer. Turn off for a
+              still interface. Reduced motion also disables this effect.
             </p>
             <label className="setting">
               Notifications

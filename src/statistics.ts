@@ -1,11 +1,12 @@
 import { focusSegments, type Data } from "./domain.js";
 
-export type StatsPeriod = "week" | "month" | "year";
+export type StatsPeriod = "day" | "week" | "month" | "year";
 
 export function calendarPeriod(now: number, period: StatsPeriod, offset = 0) {
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
-  if (period === "week")
+  if (period === "day") start.setDate(start.getDate() + offset);
+  else if (period === "week")
     start.setDate(start.getDate() - ((start.getDay() + 6) % 7) + offset * 7);
   else {
     start.setDate(1);
@@ -13,7 +14,8 @@ export function calendarPeriod(now: number, period: StatsPeriod, offset = 0) {
     else start.setFullYear(start.getFullYear() + offset, 0, 1);
   }
   const end = new Date(start);
-  if (period === "week") end.setDate(end.getDate() + 7);
+  if (period === "day") end.setDate(end.getDate() + 1);
+  else if (period === "week") end.setDate(end.getDate() + 7);
   else if (period === "month") end.setMonth(end.getMonth() + 1);
   else end.setFullYear(end.getFullYear() + 1);
   return { start: +start, end: +end };
@@ -30,7 +32,8 @@ export function periodStatistics(
   const cursor = new Date(window.start);
   while (+cursor < window.end) {
     const next = new Date(cursor);
-    if (period === "year") next.setMonth(next.getMonth() + 1);
+    if (period === "day") next.setTime(Math.min(window.end, +cursor + 3600000));
+    else if (period === "year") next.setMonth(next.getMonth() + 1);
     else next.setDate(next.getDate() + 1);
     buckets.push({
       date: new Date(cursor),

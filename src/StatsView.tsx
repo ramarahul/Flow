@@ -9,7 +9,7 @@ import {
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
-import { daily, elapsed, focusTime, focusSegments, type Data } from "./domain.js";
+import { daily, elapsed, focusTime, type Data } from "./domain.js";
 import { TaskHistory } from "./TaskHistory.js";
 import { taskLabel, focusDuration } from "./goals.js";
 import { periodStatistics, type StatsPeriod } from "./statistics.js";
@@ -73,16 +73,23 @@ export function StatsView({
       day: "numeric",
       year: "numeric",
     });
-  const periodLabel = `${date(selected.start)} – ${date(selected.end - 1)}`;
+  const periodLabel =
+    period === "day"
+      ? date(selected.start)
+      : `${date(selected.start)} – ${date(selected.end - 1)}`;
+  const bucketLabel = (value: Date) =>
+    period === "day"
+      ? value.toLocaleTimeString(undefined, {
+          hour: "numeric",
+          minute: "2-digit",
+          timeZoneName: "short",
+        })
+      : value.toLocaleDateString(undefined, {
+          month: "short",
+          day: period === "year" ? undefined : "numeric",
+          year: "numeric",
+        });
   const today = useMemo(() => daily(data, now, 1)[0].ms, [data, second]);
-  const earliest = useMemo(
-    () =>
-      focusSegments(data, now).reduce(
-        (first, segment) => Math.min(first, segment.start),
-        now,
-      ),
-    [data, second],
-  );
   const streak = useMemo(() => consecutiveDays(data, now), [data, second]);
   const total =
     data.history.reduce((sum, session) => sum + session.focusMs, 0) +
@@ -126,7 +133,9 @@ export function StatsView({
         <div className="stats-card-title">
           <h2>
             {offset === 0
-              ? `This ${period}`
+              ? period === "day"
+                ? "Today by hour"
+                : `This ${period}`
               : period === "year"
                 ? new Date(selected.start).getFullYear()
                 : period === "month"
@@ -134,39 +143,32 @@ export function StatsView({
                       month: "long",
                       year: "numeric",
                     })
-                  : "Week overview"}
+                  : period === "day"
+                    ? "Day overview"
+                    : "Week overview"}
           </h2>
           <span aria-label="Focus in selected period">{duration(selected.total)}</span>
         </div>
         <div className="chart-controls">
-          <div className="history-period" aria-label="Graph range">
-            {(["week", "month", "year"] as const).map((value) => (
-              <button
-                key={value}
-                aria-pressed={period === value}
-                title={
-                  value === "year"
-                    ? "Calendar year: one bar per month"
-                    : value === "month"
-                      ? "Calendar month: one bar per day"
-                      : "Monday to Sunday: one bar per day"
-                }
-                onClick={() => {
-                  setPeriod(value);
-                  setOffset(0);
-                }}
-              >
-                {value[0].toUpperCase() + value.slice(1)}
-              </button>
-            ))}
-          </div>
+          <select
+            aria-label="Graph range"
+            value={period}
+            onChange={(event) => {
+              setPeriod(event.target.value as StatsPeriod);
+              setOffset(0);
+            }}
+          >
+            <option value="day">Day</option>
+            <option value="week">Week</option>
+            <option value="month">Month</option>
+            <option value="year">Year</option>
+          </select>
           <div className="chart-navigation">
             <button
               className="icon"
               aria-label="Previous graph period"
               title={`Previous ${period}`}
-              disabled={selected.start <= earliest}
-              onClick={() => setOffset(offset - 1)}
+              onClick={() => setOffset((value) => value - 1)}
             >
               <ChevronLeft size={18} />
             </button>
@@ -177,20 +179,21 @@ export function StatsView({
                 offset === 0 ? "Already showing the current period" : `Next ${period}`
               }
               disabled={offset === 0}
-              onClick={() => setOffset(Math.min(0, offset + 1))}
+              onClick={() => setOffset((value) => Math.min(0, value + 1))}
             >
               <ChevronRight size={18} />
             </button>
           </div>
         </div>
         <p className="chart-date-range">{periodLabel}</p>
+        {period === "day" && <p className="quiet">Hours shown in local time (00–23).</p>}
         <div
-          className={`week-chart ${period === "month" ? "month-chart" : period === "year" ? "year-chart" : ""}`}
+          className={`week-chart ${period === "day" ? "day-chart" : period === "month" ? "month-chart" : period === "year" ? "year-chart" : ""}`}
           role="img"
           aria-label={days
             .map(
               (day) =>
-                `${day.date.toLocaleDateString(undefined, { month: "short", day: period === "year" ? undefined : "numeric", year: "numeric" })}: ${day.upcoming ? "Upcoming" : duration(day.ms)}`,
+                `${bucketLabel(day.date)}: ${day.upcoming ? "Upcoming" : duration(day.ms)}`,
             )
             .join("; ")}
         >
@@ -204,7 +207,7 @@ export function StatsView({
                     : ""
               }
               key={+day.date}
-              title={`${day.date.toLocaleDateString(undefined, { month: "long", day: period === "year" ? undefined : "numeric", year: "numeric" })}: ${day.upcoming ? "Upcoming" : duration(day.ms)}`}
+              title={`${bucketLabel(day.date)}: ${day.upcoming ? "Upcoming" : duration(day.ms)}`}
             >
               {period === "week" && (
                 <small>{day.upcoming ? "—" : duration(day.ms)}</small>
@@ -213,23 +216,28 @@ export function StatsView({
                 <span style={{ height: `${(day.ms / max) * 100}%` }} />
               </div>
               <span>
-                {period === "year"
-                  ? day.date.toLocaleDateString(undefined, { month: "short" })
-                  : period === "week"
-                    ? day.date
-                        .toLocaleDateString(undefined, { weekday: "short" })
-                        .slice(0, 2)
-                    : index === days.length - 1 ||
-                        (index % 7 === 0 && days.length - 1 - index >= 4)
-                      ? day.date.getDate()
-                      : ""}
+                {period === "day"
+                  ? index % 6 === 0 || index === days.length - 1
+                    ? String(day.date.getHours()).padStart(2, "0")
+                    : ""
+                  : period === "year"
+                    ? day.date.toLocaleDateString(undefined, { month: "short" })
+                    : period === "week"
+                      ? day.date
+                          .toLocaleDateString(undefined, { weekday: "short" })
+                          .slice(0, 2)
+                      : index === days.length - 1 ||
+                          (index % 7 === 0 && days.length - 1 - index >= 4)
+                        ? day.date.getDate()
+                        : ""}
               </span>
             </div>
           ))}
         </div>
         {days.some((day) => day.upcoming) && (
           <p className="chart-upcoming-note">
-            Dashed tracks mark upcoming {period === "year" ? "months" : "days"}.
+            Dashed tracks mark upcoming{" "}
+            {period === "day" ? "hours" : period === "year" ? "months" : "days"}.
           </p>
         )}
         {!selected.total && (

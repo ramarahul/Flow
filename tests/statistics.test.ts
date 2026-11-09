@@ -46,6 +46,34 @@ it("uses real month lengths, leap days, and twelve monthly buckets for years", (
   );
 });
 
+it("splits daily focus by hour, excludes breaks and navigates across midnight", () => {
+  const now = +new Date(2026, 0, 1, 12);
+  const result = periodStatistics(
+    records([
+      {
+        start: +new Date(2026, 0, 1, 0, 45),
+        end: +new Date(2026, 0, 1, 1, 15),
+        kind: "focus",
+        taskId: "reading",
+      },
+      {
+        start: +new Date(2026, 0, 1, 1, 15),
+        end: +new Date(2026, 0, 1, 1, 30),
+        kind: "break",
+      },
+    ]),
+    now,
+    "day",
+  );
+  assert.equal(result.buckets.length, 24);
+  assert.equal(result.buckets[0].ms, 15 * minute);
+  assert.equal(result.buckets[1].ms, 15 * minute);
+  assert.equal(result.total, 30 * minute);
+  assert.equal(result.taskTotals.get("reading"), result.total);
+  assert(result.buckets.slice(13).every((bucket) => bucket.upcoming && bucket.ms === 0));
+  assert.equal(calendarPeriod(now, "day", -1).start, +new Date(2025, 11, 31));
+});
+
 it("splits focus across months and keeps chart totals aligned with task totals, excluding breaks", () => {
   const data = records([
     {
@@ -101,6 +129,16 @@ it("uses calendar boundaries for both daylight-saving transitions", () => {
       );
       assert.equal(result.buckets[day - 1].ms, hours * 3600000);
       assert.equal(result.total, hours * 3600000);
+      const hourly = periodStatistics(
+        records([{ start, end, kind: "focus" }]),
+        end + 3600000,
+        "day",
+        -1,
+      );
+      assert.equal(hourly.start, start);
+      assert.equal(hourly.buckets.length, hours);
+      assert(hourly.buckets.every((bucket) => bucket.ms === 3600000));
+      assert.equal(hourly.total, hours * 3600000);
     }
   } finally {
     if (previous === undefined) delete process.env.TZ;
