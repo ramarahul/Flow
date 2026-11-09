@@ -142,6 +142,38 @@ const send = (action: Action, blockedPage = false) =>
   await import("../src/background.js");
 }
 describe("background orchestration with mocked Chrome APIs", () => {
+  it("stops at the target, returns home after the action window, and ignores a late repeat", async () => {
+    await send({ type: "start", minutes: 1 });
+    const started = testNow;
+    advance(65000);
+    await send({ type: "tick" });
+    const notice = latestNotice!.id;
+    assert.equal(stored.timer.session!.focusMs, 60000);
+    assert.equal(stored.timer.anchor, null);
+    assert.equal(alarms.get("flow-target")!.when, started + 90000);
+    testNow = started + 89999;
+    await send({ type: "tick" });
+    assert.equal(stored.timer.session!.focusMs, 60000);
+    testNow = started + 90000;
+    alarmFired({ name: "flow-target" });
+    await send({ type: "tick" });
+    assert.equal(stored.timer.mode, "idle");
+    assert.equal(stored.history.length, 1);
+    assert.equal(stored.history[0].focusMs, 60000);
+    assert.equal(stored.history[0].endedAt, started + 60000);
+    notificationButton(notice, 1);
+    await send({ type: "tick" });
+    assert.equal(stored.timer.mode, "idle");
+    assert.equal(stored.history.length, 1);
+  });
+  it("caps focused time when Chrome wakes after the action window", async () => {
+    await send({ type: "start", minutes: 1 });
+    advance(10 * 60000);
+    await send({ type: "tick" });
+    assert.equal(stored.timer.mode, "idle");
+    assert.equal(stored.history[0].focusMs, 60000);
+    assert.equal(notifications, 0);
+  });
   after(() => {
     Date.now = nativeNow;
   });
@@ -199,7 +231,7 @@ describe("background orchestration with mocked Chrome APIs", () => {
     await send({ type: "tick" });
     await send({ type: "tick" });
     assert.equal(notifications, 1);
-    assert.equal(alarms.has("flow-target"), false);
+    assert.equal(alarms.has("flow-target"), true);
     assert.equal(stored.history.length, 0);
     await send({ type: "extend", minutes: 5 });
     assert.equal(alarms.has("flow-target"), true);
@@ -268,7 +300,7 @@ describe("background orchestration with mocked Chrome APIs", () => {
       { type: "import", data: defaults() },
     ] as Action[])
       assert.ok((await send(action)).error);
-    advance(26 * 60000);
+    advance(25 * 60000 + 1000);
     await send({ type: "break", minutes: 5 });
     assert.ok((await send({ type: "settings", settings: { sites: [] } })).error);
     assert.equal(
@@ -292,7 +324,7 @@ describe("background orchestration with mocked Chrome APIs", () => {
   it("rejects extension during countdown and accepts it only after reaching the target", async () => {
     await send({ type: "start", minutes: 10 });
     assert.match((await send({ type: "extend", minutes: 5 })).error!, /after reaching/);
-    advance(11 * 60000);
+    advance(10 * 60000 + 1000);
     assert.equal((await send({ type: "extend", minutes: 5 })).error, undefined);
     assert.match((await send({ type: "extend", minutes: 5 })).error!, /after reaching/);
   });
@@ -349,7 +381,7 @@ describe("background orchestration with mocked Chrome APIs", () => {
     assert.equal(stored.timer.session!.targetMs, 60000);
     assert.notEqual(stored.timer.session!.id, previousSession);
     assert.equal(stored.history.length, 1);
-    assert.equal(stored.history[0].focusMs, 70000);
+    assert.equal(stored.history[0].focusMs, 60000);
     assert.equal(stored.timer.session!.focusMs, 0);
     await send({ type: "pause" }, true);
     await send({ type: "start", minutes: 10 });

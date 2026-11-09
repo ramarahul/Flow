@@ -64,7 +64,7 @@ async function expire(worker, page) {
       t.mode === "focus"
         ? s.targetMs - s.focusMs - elapsed
         : t.breakTargetMs - t.breakElapsedMs - elapsed;
-    const delta = Math.max(0, left) + 60000;
+    const delta = Math.max(0, left) + 1000;
     // Controlled timestamps exercise expiry without sleeping through a full timer.
     s.startedAt -= delta;
     for (const segment of s.segments) {
@@ -125,8 +125,8 @@ test("task switches, goal completion, repeat, breaks and popup restoration share
   await task(page, "Reading");
   await select(page, "Reading");
   await page.getByRole("combobox", { name: "Focus duration" }).selectOption("custom");
-  await page.getByLabel("Custom focus minutes").fill("1");
-  await page.getByRole("button", { name: "Start 1 minute focus session" }).click();
+  await page.getByLabel("Custom focus minutes").fill("2");
+  await page.getByRole("button", { name: "Start 2 minute focus session" }).click();
   const session = (await stored(worker)).timer.session.id;
   await task(page, "Coding", 1);
   await select(page, "Coding");
@@ -147,7 +147,7 @@ test("task switches, goal completion, repeat, breaks and popup restoration share
   await expect(reopened.getByText("TIME FOCUSED", { exact: true })).toBeVisible();
   const repeated = await command(reopened, { type: "repeat" });
   expect(repeated.timer.session.id).not.toBe(session);
-  expect(repeated.timer.session.plannedMs).toBe(60_000);
+  expect(repeated.timer.session.plannedMs).toBe(120_000);
   expect(repeated.history).toHaveLength(1);
   expect(repeated.timer.session.taskId).toBe(
     repeated.tasks.find((task) => task.name === "Coding").id,
@@ -191,4 +191,32 @@ test("edits recurring goals, archives and restores tasks, and keeps Quick Focus 
   await select(page, "Quick Focus");
   await page.getByRole("button", { name: "Start 10 minute focus session" }).click();
   expect((await stored(worker)).timer.session.taskId).toBeNull();
+});
+
+test("returns home without adding focus time when the completion window expires", async ({
+  extension,
+}) => {
+  const { page, worker } = extension;
+  await page.getByRole("button", { name: "Start 10 minute focus session" }).click();
+  await expire(worker, page);
+  await expect(page.getByRole("timer", { name: "Completed focus time" })).toBeVisible();
+  expect((await stored(worker)).timer.session.focusMs).toBe(600000);
+  await worker.evaluate(async () => {
+    const { flow } = await chrome.storage.local.get("flow");
+    const delta = flow.timer.completedAt - (Date.now() - 31000);
+    flow.timer.completedAt -= delta;
+    flow.timer.session.startedAt -= delta;
+    for (const segment of flow.timer.session.segments) {
+      segment.start -= delta;
+      segment.end -= delta;
+    }
+    await chrome.storage.local.set({ flow });
+  });
+  await command(page, { type: "tick" });
+  await expect(
+    page.getByRole("button", { name: "Start 10 minute focus session" }),
+  ).toBeVisible();
+  const saved = await stored(worker);
+  expect(saved.history).toHaveLength(1);
+  expect(saved.history[0].focusMs).toBe(600000);
 });

@@ -116,14 +116,7 @@ export function TaskViews({
         onBack={() => setEditor(null)}
       />
     );
-  const active = data.tasks.filter(
-    (task) =>
-      task.archived === showArchived &&
-      (mode === "tasks" ||
-        manage ||
-        showArchived ||
-        data.goals.some((goal) => goal.taskId === task.id && goal.enabled)),
-  );
+  const active = data.tasks.filter((task) => task.archived === showArchived);
   return (
     <section className="subview task-view">
       <button className="back-home" onClick={onBack}>
@@ -154,19 +147,6 @@ export function TaskViews({
           </button>
         </div>
       )}
-      {mode === "tasks" && !showArchived && (
-        <button
-          className="task-card"
-          disabled={working}
-          onClick={() => void choose(null)}
-        >
-          <span>
-            <strong>Quick Focus</strong>
-            <small>{focusDuration(totals.get(null) ?? 0)} today · No daily goal</small>
-          </span>
-          {selected === null && <Check size={16} />}
-        </button>
-      )}
       <div className="task-toolbar">
         <button className="secondary" onClick={() => setEditor("new")}>
           <Plus size={15} /> New task
@@ -181,6 +161,20 @@ export function TaskViews({
           <Settings2 size={17} />
         </button>
       </div>
+      {!showArchived && (
+        <button
+          className="task-card"
+          aria-pressed={selected === null}
+          disabled={working}
+          onClick={() => void choose(null)}
+        >
+          <span>
+            <strong>Quick Focus</strong>
+            <small>{focusDuration(totals.get(null) ?? 0)} today · No daily goal</small>
+          </span>
+          {selected === null && <Check size={16} />}
+        </button>
+      )}
       {manage && (
         <button
           className="text-button full"
@@ -195,6 +189,7 @@ export function TaskViews({
           <div className="task-list-item" key={task.id}>
             <button
               className="task-card"
+              aria-pressed={selected === task.id}
               disabled={task.archived || working}
               onClick={() => void choose(task.id)}
             >

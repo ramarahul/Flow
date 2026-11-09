@@ -25,6 +25,7 @@ export interface Session {
   taskId?: string | null;
 }
 export interface Timer {
+  completedAt?: number;
   mode: Mode;
   paused: boolean;
   anchor: number | null;
@@ -54,6 +55,7 @@ export interface Data {
   selectedTaskId: string | null;
 }
 export const minute = 60_000;
+export const focusActionWindow = 30_000;
 export const focusPresets = [10, 20, 30, 60, 90, 180];
 export const emptyTimer = (): Timer => ({
   mode: "idle",
@@ -183,6 +185,13 @@ export function migrate(input: unknown, now: number): Data {
   for (const value of [d.timer.breakTargetMs, d.timer.breakElapsedMs])
     if (!Number.isFinite(value) || value < 0)
       throw new Error("Invalid saved break timer. Your data has not been replaced.");
+  if (
+    d.timer.completedAt !== undefined &&
+    (!Number.isFinite(d.timer.completedAt) ||
+      d.timer.mode !== "focus" ||
+      d.timer.anchor !== null)
+  )
+    throw new Error("Invalid saved completion window. Your data has not been replaced.");
   if (d.timer.session) {
     const session = d.timer.session;
     if (
@@ -255,6 +264,7 @@ export type Action =
         | "finish"
         | "skip"
         | "tick"
+        | "completeTarget"
         | "reset"
         | "repeat"
         | "takeBreak";
@@ -345,6 +355,25 @@ export function reduce(
     return d;
   }
   if (!t.session) return d;
+  if (action.type === "completeTarget" && t.mode === "focus" && !t.paused) {
+    if (t.completedAt === undefined && remaining(t, now) <= 0) {
+      // Preserve intervals already saved by older versions that allowed overtime.
+      const end = Math.max(
+        now + remaining(t, now),
+        t.session.segments.reduce(
+          (latest, segment) => Math.max(latest, segment.end),
+          t.session.startedAt,
+        ),
+      );
+      settle(t, end);
+      t.anchor = null;
+      t.completedAt = end;
+      t.notified = true;
+    }
+    if (t.completedAt !== undefined && now >= t.completedAt + focusActionWindow)
+      archive(d, t.completedAt, "finished");
+    return d;
+  }
   if (action.type === "pause" && t.mode === "focus") {
     archive(d, now, "interrupted");
     return d;
@@ -361,11 +390,16 @@ export function reduce(
     const add = duration(action.minutes);
     t.session.targetMs = Math.max(t.session.targetMs, focusTime(t, now)) + add;
     t.notified = false;
+    if (t.completedAt !== undefined) {
+      delete t.completedAt;
+      t.anchor = now;
+    }
   }
   if (action.type === "break" && t.mode === "focus") {
     const ms = duration(action.minutes);
     settle(t, now);
     t.mode = "break";
+    delete t.completedAt;
     t.paused = false;
     t.anchor = now;
     t.breakTargetMs = ms;

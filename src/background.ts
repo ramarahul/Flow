@@ -3,6 +3,7 @@ import {
   migrate,
   reduce,
   remaining,
+  focusActionWindow,
   type Action,
   type Data,
 } from "./domain.js";
@@ -10,7 +11,7 @@ import { authorize } from "./policy.js";
 import { blockOpenTab, blockOpenTabs, shouldBlock } from "./blocking.js";
 let queue: Promise<unknown> = Promise.resolve();
 const notificationAlarmPrefix = "flow-notice:";
-const notificationLifetime = 30_000;
+const notificationLifetime = focusActionWindow;
 async function dismissNotification(id: string) {
   await chrome.notifications.clear(id);
   await chrome.alarms.clear(notificationAlarmPrefix + id);
@@ -25,6 +26,10 @@ async function read(): Promise<Data> {
 async function sync(d: Data) {
   await chrome.alarms.clear("flow-target");
   const t = d.timer;
+  if (t.mode === "focus" && t.completedAt !== undefined)
+    await chrome.alarms.create("flow-target", {
+      when: Math.max(Date.now() + 1, t.completedAt + focusActionWindow),
+    });
   if ((t.mode === "focus" || t.mode === "break") && !t.paused && !t.notified)
     await chrome.alarms.create("flow-target", {
       when: Date.now() + Math.max(1, remaining(t, Date.now())),
@@ -79,7 +84,8 @@ async function run(
 ) {
   const original = await read();
   const now = Date.now();
-  const caught = reduce(original, { type: "tick" }, now);
+  const ticked = reduce(original, { type: "tick" }, now);
+  const caught = reduce(ticked, { type: "completeTarget" }, now);
   const breakFinished =
     original.timer.mode === "break" &&
     !original.timer.paused &&
@@ -93,8 +99,11 @@ async function run(
       caught.timer.paused ||
       remaining(caught.timer, now) > 0 ||
       notificationId(caught) !== expectedNotification)
-  )
-    return original;
+  ) {
+    await chrome.storage.local.set({ flow: caught });
+    await sync(caught);
+    return caught;
+  }
   authorize(
     caught,
     action,
@@ -105,6 +114,8 @@ async function run(
   // Persist the notification marker before invoking external effects: no duplicate alerts after wake/restart.
   await chrome.storage.local.set({ flow: next });
   await sync(next);
+  if (original.timer.mode === "focus" && next.timer.mode === "idle")
+    await dismissNotification(notificationId(original));
   if (
     (breakFinished ||
       (!original.timer.notified && caught.timer.notified && next.timer.notified)) &&
@@ -122,7 +133,7 @@ async function run(
         title: isBreak ? "Your break is complete" : "Your focus target is reached",
         message: isBreak
           ? "Your session is saved. Start a fresh focus session whenever you are ready."
-          : "Your focus keeps counting automatically. Take a break or end focus whenever you are ready.",
+          : "Your focus time is saved at the target. Take a break or repeat within 30 seconds; otherwise Flow returns home.",
         silent: !next.settings.sound,
         requireInteraction: false,
         ...(!isBreak

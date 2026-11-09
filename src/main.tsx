@@ -16,6 +16,7 @@ import {
 import {
   defaults,
   focusTime,
+  focusActionWindow,
   focusPresets,
   remaining,
   site,
@@ -90,10 +91,7 @@ function App() {
   const selectedMinutes = s.showDuration ? minutes : s.focus;
   const previousMode = useRef(t.mode);
   useEffect(() => {
-    if (
-      (previousMode.current === "break" || previousMode.current === "breakDone") &&
-      t.mode === "idle"
-    ) {
+    if (previousMode.current !== "idle" && t.mode === "idle") {
       setView("timer");
       setMinutes(s.focus);
       setCustomDuration(false);
@@ -109,6 +107,11 @@ function App() {
     )
       void send({ type: "tick" });
   }, [t.mode, t.paused, t.notified, left <= 0]);
+  const completionExpired =
+    t.completedAt !== undefined && now >= t.completedAt + focusActionWindow;
+  useEffect(() => {
+    if (completionExpired) void send({ type: "tick" });
+  }, [completionExpired]);
   const update = (patch: Partial<Settings>) =>
     void send({ type: "settings", settings: patch });
   const exportData = () => {

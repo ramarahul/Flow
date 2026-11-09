@@ -195,38 +195,38 @@ nav {
   min-height: 190px;
   padding: 22px 8px;
   border-radius: 28px;
-  background: linear-gradient(145deg, #eef7ff, #c7ceff);
-  color: #353968;
-  border: 1px solid #f8fbff;
+  background: linear-gradient(145deg, #fff1da, #edbd99);
+  color: #503226;
+  border: 1px solid #fff3df;
   box-shadow:
     inset 0 1px 0 #fff9,
-    0 7px 0 #9688c4,
-    0 14px 25px #70508922;
+    0 7px 0 #b67e66,
+    0 14px 25px #80513e22;
   transition:
     transform 0.18s,
     box-shadow 0.18s,
     background 0.18s;
 }
 .timer-start:hover {
-  background: linear-gradient(145deg, #f5fbff, #dadbff);
+  background: linear-gradient(145deg, #fff6e7, #f4cba9);
   transform: translateY(-2px);
   box-shadow:
     inset 0 1px 0 #fffb,
-    0 9px 0 #9688c4,
-    0 18px 28px #70508930;
+    0 9px 0 #b67e66,
+    0 18px 28px #80513e30;
 }
 .timer-start:active {
   transform: translateY(4px);
   box-shadow:
     inset 0 1px 0 #fff9,
-    0 3px 0 #9688c4,
-    0 5px 12px #70508922;
+    0 3px 0 #b67e66,
+    0 5px 12px #80513e22;
 }
 .timer-start:disabled {
   transform: none;
 }
 .timer-start .timer-label {
-  color: #5c6187;
+  color: #735042;
 }
 .timer-start .digits {
   font-weight: 450;
@@ -885,6 +885,11 @@ footer button {
 }
 .task-card > span {
   min-width: 0;
+}
+.task-card[aria-pressed="true"] {
+  background: var(--surface);
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 .task-card strong {
   display: block;

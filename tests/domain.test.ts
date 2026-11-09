@@ -16,6 +16,30 @@ import {
 const start = (now = 1000) =>
   reduce(defaults(), { type: "start", minutes: 25 }, now, "same");
 describe("continuous focus sessions", () => {
+  it("restores a stopped completion window and saves once without adding focused time", () => {
+    const end = 1000 + 25 * minute;
+    let d = reduce(start(), { type: "completeTarget" }, end + 5000);
+    assert.equal(d.timer.session!.focusMs, 25 * minute);
+    assert.equal(d.timer.anchor, null);
+    d = migrate(d, end + 15000);
+    assert.equal(focusTime(d.timer, end + 20000), 25 * minute);
+    d = reduce(d, { type: "completeTarget" }, end + 30000);
+    d = reduce(d, { type: "completeTarget" }, end + 60000);
+    assert.equal(d.timer.mode, "idle");
+    assert.equal(d.history.length, 1);
+    assert.equal(d.history[0].endedAt, end);
+    validateData(d);
+  });
+  it("preserves previously saved legacy overtime intervals when completing after upgrade", () => {
+    let d = start();
+    d.timer.session!.focusMs = 28 * minute;
+    d.timer.session!.segments = [{ start: 1000, end: 1000 + 28 * minute, kind: "focus" }];
+    d.timer.anchor = 1000 + 28 * minute;
+    d = reduce(d, { type: "completeTarget" }, 1000 + 30 * minute);
+    assert.equal(d.timer.mode, "idle");
+    assert.equal(d.history[0].focusMs, 28 * minute);
+    validateData(d);
+  });
   it("ends focus on pause and logs only accumulated focus time", () => {
     let d = reduce(start(), { type: "pause" }, 1000 + 5 * minute);
     assert.equal(d.timer.mode, "idle");

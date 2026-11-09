@@ -26,7 +26,9 @@ export function TimerReadout({ timer, now }: { timer: Timer; now: number }) {
         role="timer"
         aria-label={
           targetReached
-            ? "Total focus time, counting up"
+            ? timer.completedAt !== undefined
+              ? "Completed focus time"
+              : "Total focus time, counting up"
             : isBreak
               ? "Break time remaining"
               : "Focus time remaining"
@@ -38,10 +40,12 @@ export function TimerReadout({ timer, now }: { timer: Timer; now: number }) {
         {isBreak
           ? "Your focus time is saved."
           : targetReached
-            ? "Your focus keeps counting automatically."
+            ? timer.completedAt !== undefined
+              ? "Session complete. Choose your next step within 30 seconds."
+              : "Your focus keeps counting automatically."
             : `${clock(focused, true)} focused`}
       </p>
-      {targetReached && (
+      {targetReached && timer.completedAt === undefined && (
         <p className="target-note">
           {clock(-left, true)} beyond your {Math.round(timer.session.targetMs / 60000)}{" "}
           min target

@@ -20,6 +20,28 @@ export function SessionActions({ data, now, busy, send }: Props) {
 
   useEffect(() => setPanel(null), [t.mode, t.session?.targetMs]);
   if (t.mode === "idle" || (!isBreak && !canFinish)) return null;
+  if (t.completedAt !== undefined)
+    return (
+      <section className="session-actions" aria-label="Session actions">
+        <button
+          className="primary"
+          disabled={busy}
+          onClick={() => void send({ type: "repeat" })}
+        >
+          Repeat session
+        </button>
+        <button
+          className="secondary full"
+          disabled={busy}
+          onClick={() => void send({ type: "takeBreak" })}
+        >
+          Take a break
+        </button>
+        <p className="action-explanation">
+          Returning home automatically. Your focused time has stopped.
+        </p>
+      </section>
+    );
 
   const open = (next: "extend" | "break") => {
     setPanel(panel === next ? null : next);

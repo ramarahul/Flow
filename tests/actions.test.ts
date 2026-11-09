@@ -127,4 +127,31 @@ it("provides Quick Focus and task-management access in a separate selection scre
   assert.match(html, /New task/);
   assert.match(html, /Manage tasks/);
   assert.match(html, /Not scheduled today/);
+  assert(html.indexOf("New task") < html.indexOf("Quick Focus"));
+});
+
+it("shows the selected task even when its goal is disabled in the goals view", () => {
+  const data = reduce(
+    defaults(),
+    {
+      type: "saveTask",
+      name: "Reading",
+      goal: { targetMinutes: 30, weekdays: [1, 2, 3, 4, 5], enabled: false },
+    },
+    1000,
+    "reading",
+  );
+  data.selectedTaskId = "reading";
+  const html = renderToStaticMarkup(
+    createElement(TaskViews, {
+      data,
+      now: 1000,
+      mode: "goals",
+      send: async () => undefined,
+      onBack: () => {},
+    }),
+  );
+  assert.match(html, /aria-pressed="true"[^>]*>[\s\S]*?Reading/);
+  assert.match(html, /Quick Focus/);
+  assert(html.indexOf("New task") < html.indexOf("Quick Focus"));
 });
