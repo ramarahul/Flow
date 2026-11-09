@@ -12,7 +12,7 @@ checks preferences and popup persistence, task and recurring-goal management, ta
 switching, timer expiry, repeat, breaks, and statistics. Tests move fixture timestamps
 to exercise expiry without waiting minutes. Native notification button delivery,
 Chrome's optional-permission prompts, real website redirects and overlay rendering
-still require the manual Chrome checklist in README. Unit tests cover their logic.
+still require the [manual Chrome checklist](../docs/TESTING.md). Unit tests cover their logic.
 
 `PR gate` fails if any preceding stage fails or is skipped. There are no path filters.
 CI and release workflows have only `contents: read`; PRs receive no store secrets.
@@ -86,7 +86,7 @@ them in Google/GitHub if exposed.
 1. Update `package.json`, `package-lock.json` (use `npm install --package-lock-only`),
    and `public/manifest.json` to the same new version. Chrome updates require a higher
    manifest version. Open a PR, wait for `PR gate`, then merge.
-2. Complete the README manual Chrome checklist using the CI package. CI artifacts
+2. Complete the [manual Chrome checklist](../docs/TESTING.md) using the CI package. CI artifacts
    contain `flow-VERSION.zip`, its SHA-256 file, and `release.json`. The manifest is
    at the ZIP root. Test with the actual Chrome/browser/OS versions you support.
 3. In Actions → **Chrome Web Store release** → Run workflow, choose **main**, enter
