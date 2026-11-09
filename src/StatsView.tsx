@@ -1,6 +1,14 @@
-import { useMemo } from "react";
-import { ArrowLeft, Coffee, Clock3, CalendarDays, CheckCircle2 } from "lucide-react";
-import { daily, elapsed, focusTime, type Data } from "./domain.js";
+import { useMemo, useState } from "react";
+import {
+  ArrowLeft,
+  Coffee,
+  Clock3,
+  CalendarDays,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { daily, elapsed, focusTime, focusSegments, type Data } from "./domain.js";
 import { TaskHistory } from "./TaskHistory.js";
 import { taskLabel } from "./goals.js";
 
@@ -49,7 +57,21 @@ export function StatsView({
   onBack: () => void;
 }) {
   const second = Math.floor(now / 1000);
-  const days = useMemo(() => daily(data, now), [data, second]);
+  const [period, setPeriod] = useState(7);
+  const [offset, setOffset] = useState(0);
+  const [historyLimit, setHistoryLimit] = useState(5);
+  const end = new Date(now);
+  end.setDate(end.getDate() + offset);
+  const days = useMemo(() => daily(data, +end, period), [data, second, period, offset]);
+  const today = useMemo(() => daily(data, now, 1)[0].ms, [data, second]);
+  const earliest = useMemo(
+    () =>
+      focusSegments(data, now).reduce(
+        (first, segment) => Math.min(first, segment.start),
+        now,
+      ),
+    [data, second],
+  );
   const streak = useMemo(() => consecutiveDays(data, now), [data, second]);
   const total =
     data.history.reduce((sum, session) => sum + session.focusMs, 0) +
@@ -83,12 +105,98 @@ export function StatsView({
         <span>
           <Clock3 size={17} /> Focused today
         </span>
-        <strong>{duration(days[6].ms)}</strong>
+        <strong>{duration(today)}</strong>
         <p>
-          {days[6].ms
+          {today
             ? "Time you made for what matters."
             : "A fresh day. Begin whenever you’re ready."}
         </p>
+      </div>
+      <div className="week-card">
+        <div className="stats-card-title">
+          <h2>{offset === 0 ? `Last ${period} days` : `${period}-day overview`}</h2>
+          <span>{duration(week)}</span>
+        </div>
+        <div className="chart-controls">
+          <div className="history-period" aria-label="Graph range">
+            {[7, 30].map((value) => (
+              <button
+                key={value}
+                aria-pressed={period === value}
+                onClick={() => {
+                  setPeriod(value);
+                  setOffset(0);
+                }}
+              >
+                {value} days
+              </button>
+            ))}
+          </div>
+          <div className="chart-navigation">
+            <button
+              className="icon"
+              aria-label="Previous graph period"
+              disabled={+days[0].date <= earliest}
+              onClick={() => setOffset(offset - period)}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              className="icon"
+              aria-label="Next graph period"
+              disabled={offset === 0}
+              onClick={() => setOffset(Math.min(0, offset + period))}
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        </div>
+        <p className="chart-date-range">
+          {days[0].date.toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}{" "}
+          –{" "}
+          {days[days.length - 1].date.toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </p>
+        <div
+          className={`week-chart ${period === 30 ? "month-chart" : ""}`}
+          role="img"
+          aria-label={days
+            .map(
+              (day) =>
+                `${day.date.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}: ${duration(day.ms)}`,
+            )
+            .join("; ")}
+        >
+          {days.map((day, index) => (
+            <div
+              className={offset === 0 && index === days.length - 1 ? "today-column" : ""}
+              key={+day.date}
+              title={`${day.date.toLocaleDateString()}: ${duration(day.ms)}`}
+            >
+              {period === 7 && <small>{duration(day.ms)}</small>}
+              <div className="week-bar-track">
+                <span style={{ height: `${(day.ms / max) * 100}%` }} />
+              </div>
+              <span>
+                {period === 7
+                  ? day.date
+                      .toLocaleDateString(undefined, { weekday: "short" })
+                      .slice(0, 2)
+                  : index % 7 === 0 || index === days.length - 1
+                    ? day.date.getDate()
+                    : ""}
+              </span>
+            </div>
+          ))}
+        </div>
+        {!week && <p className="chart-empty">Your focused minutes will appear here.</p>}
       </div>
       <div className="metric-cards">
         <div>
@@ -112,39 +220,10 @@ export function StatsView({
           <strong>{streak}</strong>
         </div>
       </div>
-      <div className="week-card">
-        <div className="stats-card-title">
-          <h2>Last 7 days</h2>
-          <span>{duration(week)}</span>
-        </div>
-        <div
-          className="week-chart"
-          role="img"
-          aria-label={days
-            .map(
-              (day) =>
-                `${day.date.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}: ${duration(day.ms)}`,
-            )
-            .join("; ")}
-        >
-          {days.map((day, index) => (
-            <div className={index === 6 ? "today-column" : ""} key={+day.date}>
-              <small>{Math.floor(day.ms / 60000)}m</small>
-              <div className="week-bar-track">
-                <span style={{ height: `${(day.ms / max) * 100}%` }} />
-              </div>
-              <span>
-                {day.date.toLocaleDateString(undefined, { weekday: "short" }).slice(0, 2)}
-              </span>
-            </div>
-          ))}
-        </div>
-        {!week && <p className="chart-empty">Your focused minutes will appear here.</p>}
-      </div>
       <TaskHistory data={data} now={now} />
       <div className="session-history-card">
         <div className="stats-card-title">
-          <h2>Recent sessions</h2>
+          <h2>Session history</h2>
           <span>{data.history.length}</span>
         </div>
         {!data.history.length ? (
@@ -155,46 +234,61 @@ export function StatsView({
           </p>
         ) : (
           <div className="session-history-list">
-            {[...data.history].reverse().map((session) => (
-              <div className="session-row" key={session.id}>
-                <div>
-                  <strong>
-                    {new Date(session.startedAt).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </strong>
-                  <small>
-                    {[
-                      ...new Set(
-                        session.segments
-                          .filter((segment) => segment.kind === "focus")
-                          .map((segment) => segment.taskId ?? null),
-                      ),
-                    ]
-                      .map((id) => taskLabel(data, id))
-                      .join(" · ") || taskLabel(data, session.taskId)}
-                  </small>
-                  <small>
-                    {new Date(session.startedAt).toLocaleTimeString(undefined, {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}{" "}
-                    · {session.outcome === "interrupted" ? "Ended early" : "Finished"}
-                  </small>
-                  {session.breakMs > 0 && (
-                    <small>{duration(session.breakMs)} break</small>
-                  )}
+            {data.history
+              .slice(-historyLimit)
+              .reverse()
+              .map((session) => (
+                <div className="session-row" key={session.id}>
+                  <div>
+                    <strong>
+                      {new Date(session.startedAt).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </strong>
+                    <small>
+                      {[
+                        ...new Set(
+                          session.segments
+                            .filter((segment) => segment.kind === "focus")
+                            .map((segment) => segment.taskId ?? null),
+                        ),
+                      ]
+                        .map((id) => taskLabel(data, id))
+                        .join(" · ") || taskLabel(data, session.taskId)}
+                    </small>
+                    <small>
+                      {new Date(session.startedAt).toLocaleTimeString(undefined, {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}{" "}
+                      · {session.outcome === "interrupted" ? "Ended early" : "Finished"}
+                    </small>
+                    {session.breakMs > 0 && (
+                      <small>{duration(session.breakMs)} break</small>
+                    )}
+                  </div>
+                  <span className="session-duration">
+                    {precise(session.focusMs)}
+                    <small>focused</small>
+                  </span>
                 </div>
-                <span className="session-duration">
-                  {precise(session.focusMs)}
-                  <small>focused</small>
-                </span>
-              </div>
-            ))}
+              ))}
           </div>
         )}
+        {data.history.length > historyLimit && (
+          <button
+            className="secondary full history-more"
+            onClick={() => setHistoryLimit(historyLimit + 5)}
+          >
+            Show 5 more sessions
+          </button>
+        )}
       </div>
+      <p className="stats-storage-note">
+        All saved history is available on this device. Export a backup in Settings before
+        clearing browser data or removing Flow.
+      </p>
     </section>
   );
 }

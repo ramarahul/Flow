@@ -10,6 +10,7 @@ const test = base.extend({
     const context = await chromium.launchPersistentContext(profile, {
       channel: "chromium",
       headless: true,
+      viewport: { width: 300, height: 650 },
       args: [
         `--disable-extensions-except=${extensionPath}`,
         `--load-extension=${extensionPath}`,
@@ -120,7 +121,7 @@ test("loads the real extension and persists a single-button home preference", as
 
 test("task switches, goal completion, repeat, breaks and popup restoration share one timer", async ({
   extension,
-}) => {
+}, testInfo) => {
   const { page, worker, context, id } = extension;
   await task(page, "Reading");
   await select(page, "Reading");
@@ -129,6 +130,15 @@ test("task switches, goal completion, repeat, breaks and popup restoration share
   await page.getByRole("button", { name: "Start 2 minute focus session" }).click();
   const session = (await stored(worker)).timer.session.id;
   await task(page, "Coding", 1);
+  await expect(page.getByRole("button", { name: /^Reading/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(page.getByRole("button", { name: /^Coding/ })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  await page.screenshot({ path: testInfo.outputPath("tasks.png") });
   await select(page, "Coding");
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   expect((await stored(worker)).timer.session.taskId).toBe(
@@ -219,4 +229,48 @@ test("returns home without adding focus time when the completion window expires"
   const saved = await stored(worker);
   expect(saved.history).toHaveLength(1);
   expect(saved.history[0].focusMs).toBe(600000);
+});
+
+test("browses saved graph periods and expands older session history", async ({
+  extension,
+}, testInfo) => {
+  const { page, worker } = extension;
+  await command(page, { type: "start", minutes: 1 });
+  await expire(worker, page);
+  await command(page, { type: "finish" });
+  await worker.evaluate(async () => {
+    const { flow } = await chrome.storage.local.get("flow");
+    const sample = flow.history[0];
+    flow.history = Array.from({ length: 7 }, (_, index) => {
+      const session = structuredClone(sample);
+      const shift = (6 - index) * 10 * 86400000;
+      session.id = `history-${index}`;
+      session.startedAt -= shift;
+      session.endedAt -= shift;
+      for (const segment of session.segments) {
+        segment.start -= shift;
+        segment.end -= shift;
+      }
+      return session;
+    });
+    await chrome.storage.local.set({ flow });
+  });
+  await page.getByRole("button", { name: "Statistics", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Last 7 days" })).toBeVisible();
+  await expect(page.locator(".session-row")).toHaveCount(5);
+  await page.getByRole("button", { name: "Show 5 more sessions" }).click();
+  await expect(page.locator(".session-row")).toHaveCount(7);
+  await page.getByRole("button", { name: "30 days", exact: true }).click();
+  await expect(page.locator(".week-bar-track")).toHaveCount(30);
+  await page.getByRole("button", { name: "Previous graph period" }).click();
+  await expect(page.getByRole("heading", { name: "30-day overview" })).toBeVisible();
+  await page.getByRole("button", { name: "Previous graph period" }).click();
+  await expect(
+    page.getByRole("button", { name: "Previous graph period" }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "Next graph period" }).click();
+  await page.getByRole("button", { name: "7 days", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Next graph period" })).toBeDisabled();
+  await page.getByRole("heading", { name: "Your focus" }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath("statistics.png"), fullPage: true });
 });

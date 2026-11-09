@@ -1,6 +1,6 @@
 # Flow
 
-A compact, typography-led Chrome focus timer. A 300px popup pairs friendly lavender surfaces with a warm champagne-and-copper time button and subtle press feedback. Click the large time display to start; there is no separate Start button. One duration selector reveals custom input only when needed. Focus defaults to 10 minutes, with presets of 10, 20, 30, 60, 90, and 180 minutes. All data stays on your device.
+A compact, typography-led Chrome focus timer. A 300px popup pairs friendly lavender surfaces with a soft ivory time button, plum typography, and subtle press feedback. Click the large time display to start; there is no separate Start button. One duration selector reveals custom input only when needed. Focus defaults to 10 minutes, with presets of 10, 20, 30, 60, 90, and 180 minutes. All data stays on your device.
 
 The authoritative product specification is [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md). It supersedes the original visual brief throughout the product and data model.
 
@@ -52,7 +52,7 @@ The automated suite covers interval accounting and mocked Chrome integration; li
 
 In Settings, **Show duration on home** is enabled by default. Turn it off to hide both the duration selector and custom input, leaving one large Start timer. This mode always uses your saved default focus duration; change that value in Settings. The visibility preference persists locally and is included in export/import, while older data defaults to showing the selector.
 
-Statistics now has a full-width **Back to timer** button, a Today card, clear totals, a seven-day chart, and session history with precise durations and early-ended labels. Partial time counts toward focus totals without increasing finished-session counts.
+Statistics has a full-width **Back to timer** button, an ivory Today card, compact all-time totals, and violet graphs. Switch between 7-day and 30-day graphs and use the arrows to browse back to the earliest saved focus interval; date ranges include the year. Focus by task supports daily/weekly browsing. Session history initially shows five records, with Show 5 more to reveal older sessions. Partial time counts toward focus totals without increasing finished-session counts. There is no age-based history cutoff: availability depends on data retained on this device and Chrome's local-storage quota. Export backups before clearing data or removing the extension.
 
 Choose a preset (10, 20, 30, 60, 90, or 180 minutes) or custom duration. During the focus countdown, the popup has no extension, pause, break, or finish controls. To interrupt focus, visit a blocked website and choose **End session and save partial time**. This clears the active session, saves only actual accumulated focus time, and unblocks websites. It cannot be resumed. Partial entries appear in history and total/daily focus, but do not count as finished sessions. After reaching the target, repeat and break actions are available for 30 seconds; otherwise Flow saves the finished record and returns home. Manual breaks save focus progress until the break is ended or expires, then save the session and return to the home timer for a fresh start.
 

@@ -1,17 +1,25 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { Data } from "./domain.js";
+import { focusSegments, type Data } from "./domain.js";
 import { dayWindow, taskTotals, taskLabel, focusDuration } from "./goals.js";
 
 export function TaskHistory({ data, now }: { data: Data; now: number }) {
   const [days, setDays] = useState(1),
     [offset, setOffset] = useState(0);
   const totals = taskTotals(data, now, days, offset);
+  const earliest = focusSegments(data, now).reduce(
+    (first, segment) => Math.min(first, segment.start),
+    now,
+  );
   const entries = [...totals].sort((a, b) => b[1] - a[1]);
   const start = dayWindow(now, offset - days + 1).date,
     end = dayWindow(now, offset).date;
   const date = (value: Date) =>
-    value.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    value.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: value.getFullYear() !== new Date(now).getFullYear() ? "numeric" : undefined,
+    });
   return (
     <div className="task-history-card">
       <div className="stats-card-title">
@@ -41,6 +49,7 @@ export function TaskHistory({ data, now }: { data: Data; now: number }) {
         <button
           className="icon"
           aria-label="Previous period"
+          disabled={+start <= earliest}
           onClick={() => setOffset(offset - days)}
         >
           <ChevronLeft size={17} />
