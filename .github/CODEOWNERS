@@ -1,0 +1,6 @@
+# Request the repository owner's review for release/security-sensitive changes.
+/.github/ @ramarahul
+/scripts/ @ramarahul
+/public/manifest.json @ramarahul
+/package*.json @ramarahul
+/tests/e2e/ @ramarahul
