@@ -11,8 +11,9 @@ screens should help people choose a task or understand their time without adding
 dashboard clutter. Use typography, spacing, and consistent states instead of
 decorative illustrations, rewards, or gamification.
 
-Keep the popup 300px wide. Do not enlarge it to accommodate controls. Show important
-actions with words; an unfamiliar icon alone is not sufficient for task editing.
+Keep the popup 300px wide. Do not enlarge it to accommodate controls. Use words for
+unfamiliar management actions. The task-edit pencil is an intentional icon-only
+control, with a hover tooltip and accessible name explaining its purpose.
 
 ## Color roles
 
@@ -91,14 +92,26 @@ and its goal progress without reserving empty space or changing the selected tas
 The header's Today's goals action remains available. Reuse the existing Settings
 toggle style and explain that hiding a task does not stop its time attribution.
 
+### Running countdown
+
+Keep the running countdown compact on the existing canvas: a label, large remaining
+time, a quiet elapsed-time caption, and a thin linear progress bar. Do not add a
+large enclosing card, circular dial, or separate timing-detail panels.
+
+The countdown is not a button. Do not add pause, finish, extension, or break controls
+during the protected countdown. No blinking, pulsing, rotating decoration, or
+continuous attention-seeking animation. Progress transitions follow the existing
+reduced-motion rule.
+
 ### Tasks
 
 Keep selection lightweight: New task above the list, an Archived tasks text link,
 and Quick Focus as the permanent default. No full-width management toolbar, filter
 tabs with counters, or repeated Rename/Archive/Delete action bars.
 
-Each custom row has one visible **Edit task** text button, separate from its task
-selection button. Choosing a task selects it; Edit task opens its details. Never
+Each custom row has one visible **pencil icon**, separate from its task selection
+button, in a 36px target. It has an **Edit task: [name]** native hover tooltip and
+matching accessible name. Choosing a task selects it; the pencil opens its details. Never
 nest buttons. Show the selected task with the established violet fill and a check,
 not only a check on an unchanged surface.
 
@@ -118,10 +131,27 @@ or independent period selector to the task breakdown. Mark future buckets as
 upcoming with dashed tracks and text, rather than treating them as missed focus.
 Keep Today and clearly labeled all-time summaries separate from the selected
 period. All sessions remains an all-history list with years included in dates.
-Expand older history progressively; do not render a wall of session cards or
-introduce competing chart colors.
+Keep All sessions collapsed by default with a native, keyboard-accessible summary.
+Show at most five sessions at a time inside it, with Newer / Older pagination.
+Collapsing hides the records, and reopening starts at the newest page. Do not append
+an ever-growing list or introduce competing chart colors.
+
+### Website blocking overlay
+
+Use a neutral opacity-only backdrop (`rgba(0,0,0,.45)`) and a solid surface panel
+matching `--surface`, with the existing text and border colors. Keep the underlying
+website sharp. No backdrop filters, blur, foggy shadows, movement, or fades. The
+overlay's isolated stylesheet uses literal matching colors because Chrome injects
+the function without the popup stylesheet. Preserve modal blocking, keyboard
+protection, partial-time interruption, and automatic removal at the focus target.
 
 ### States and feedback
+
+Give icon-only controls native hover titles and accessible names; do not rely on
+the icon alone. Native titles avoid clipping tooltips inside scroll containers.
+Keep vertical scrollbars thin, with rounded thumbs using the existing divider and
+accent colors. Reserve a stable scrollbar gutter and a content gap in Stats and
+Settings; avoid horizontal scrolling and overlapping form controls.
 
 Selection must change both appearance and accessible state. Keyboard focus must
 remain visible. Disabled controls must not look actionable. Errors use the danger

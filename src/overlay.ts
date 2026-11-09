@@ -70,15 +70,15 @@ export async function installFocusOverlay() {
         padding: 32px;
         border: 1px solid #c5b5e1;
         border-radius: 20px;
-        background: #e4dcfa;
+        background: #f7f2ff;
         color: #3b2e56;
         font: 14px/1.6 system-ui,sans-serif;
         text-align: center;
-        box-shadow: 0 20px 80px #0004
+        box-shadow: none
       }
       dialog::backdrop {
-        background: rgba(45,32,69,.7);
-        backdrop-filter: blur(3px)
+        /* Opacity only: keep the website sharp and avoid visual distortion. */
+        background: rgba(0,0,0,.45)
       }
       h1 {
         font-size: 25px;

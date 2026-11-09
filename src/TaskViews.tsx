@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, ChevronDown, Plus, Check } from "lucide-react";
+import { ArrowLeft, ChevronDown, Plus, Check, Pencil } from "lucide-react";
 import type { Action, Data } from "./domain.js";
 import type { Task, GoalInput } from "./tasks.js";
 import { taskTotals, taskProgress, taskLabel, focusDuration } from "./goals.js";
@@ -134,7 +134,7 @@ export function TaskViews({
       <p className="subtitle">
         {showArchived
           ? "Restore a task to focus on it again."
-          : "Choose a task. Use Edit task to rename or manage it."}
+          : "Choose a task. Use the pencil to edit it."}
       </p>
       {pending && (
         <div className="switch-confirm" role="alert">
@@ -209,12 +209,13 @@ export function TaskViews({
                 className="task-edit"
                 disabled={working}
                 aria-label={`Edit task: ${task.name}`}
+                title={`Edit task: ${task.name}`}
                 onClick={() => {
                   setPending(null);
                   setEditor(task);
                 }}
               >
-                Edit task
+                <Pencil size={16} aria-hidden="true" />
               </button>
             </div>
             {progress.goal && !task.archived && <GoalProgress progress={progress} />}

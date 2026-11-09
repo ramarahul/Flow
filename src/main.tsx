@@ -133,6 +133,7 @@ function App() {
           className="brand"
           onClick={() => setView("timer")}
           aria-label="Flow timer"
+          title="Back to timer"
         >
           flow
           <span className="brand-dot">.</span>
@@ -170,6 +171,7 @@ function App() {
           <button
             className="icon"
             aria-label="Dismiss error"
+            title="Dismiss error"
             onClick={() => setError("")}
           >
             <X size={14} />
@@ -475,6 +477,7 @@ function App() {
             <button
               className="secondary"
               aria-label="Add website"
+              title="Add website to blocklist"
               disabled={active || busy}
             >
               <Plus size={16} />
@@ -487,6 +490,7 @@ function App() {
                 <button
                   className="icon"
                   aria-label={`Remove ${h}`}
+                  title={`Remove ${h} from blocklist`}
                   disabled={active || busy}
                   onClick={() => update({ sites: s.sites.filter((x) => x !== h) })}
                 >

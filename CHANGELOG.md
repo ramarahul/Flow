@@ -5,6 +5,14 @@ which version is currently published; a changelog entry does not mean approval.
 
 ## [Unreleased]
 
+- Remove blur from the blocking overlay; use neutral dimming and a solid panel.
+
+- Keep the active countdown compact with a thin progress bar, and make session
+  history collapsible with five records per page.
+
+- Refine Stats and Settings scrollbars, explain icon controls on hover, and use a
+  labeled pencil icon for editing tasks.
+
 - Use calendar Week, Month, and Year statistics with a shared task breakdown,
   correct month lengths, and future dates marked as upcoming.
 

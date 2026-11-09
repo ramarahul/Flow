@@ -310,6 +310,79 @@ test("hides the home task selector without losing task selection or tracking", a
   ).toBeVisible();
 });
 
+test("keeps the countdown compact with accurate progress and reduced-motion support", async ({
+  extension,
+}, testInfo) => {
+  const { page, worker } = extension;
+  await page.getByRole("button", { name: "Start 10 minute focus session" }).click();
+  await expect(page.getByRole("timer", { name: "Focus time remaining" })).toBeVisible();
+  await expect(
+    page.getByRole("progressbar", { name: "Focus target progress" }),
+  ).toHaveCount(1);
+  await expect(page.locator(".focus-countdown, .focus-dial")).toHaveCount(0);
+  await expect(page.locator(".timer button")).toHaveCount(0);
+  await worker.evaluate(async () => {
+    const { flow } = await chrome.storage.local.get("flow");
+    flow.timer.anchor -= 120000;
+    flow.timer.session.startedAt -= 120000;
+    await chrome.storage.local.set({ flow });
+  });
+  await command(page, { type: "tick" });
+  await expect(
+    page.getByRole("progressbar", { name: "Focus target progress" }),
+  ).toHaveAttribute("aria-valuenow", "20");
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("focus-countdown.png") });
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await expect
+    .poll(() =>
+      page
+        .locator(".timer .progress > span")
+        .evaluate((element) => getComputedStyle(element).transitionDuration),
+    )
+    .toBe("0s");
+  await expect(page.getByRole("timer", { name: "Focus time remaining" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("focus-countdown-dark.png") });
+});
+
+test("keeps scrollable screens usable and explains task icons", async ({ extension }) => {
+  const { page } = extension;
+  for (const name of ["Settings", "Statistics"]) {
+    const navigation = page.getByRole("button", { name, exact: true });
+    await expect(navigation).toHaveAttribute("title", name);
+    await navigation.click();
+    const panel = page.locator(".subview");
+    const dimensions = await panel.evaluate((element) => ({
+      vertical: element.scrollHeight > element.clientHeight,
+      horizontal: element.scrollWidth > element.clientWidth,
+      gutter: getComputedStyle(element).scrollbarGutter,
+      overflow: getComputedStyle(element).overflowY,
+    }));
+    expect(dimensions.vertical).toBe(true);
+    expect(dimensions.horizontal).toBe(false);
+    expect(dimensions.gutter).toBe("stable");
+    expect(dimensions.overflow).toBe("auto");
+    await panel.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect
+      .poll(() => panel.evaluate((element) => element.scrollTop))
+      .toBeGreaterThan(0);
+  }
+  await page.getByRole("button", { name: "Flow timer", exact: true }).click();
+  await task(page, "Reading");
+  const edit = page.getByRole("button", { name: "Edit task: Reading", exact: true });
+  await expect(edit).toHaveAttribute("title", "Edit task: Reading");
+  await expect(edit.locator("svg")).toBeVisible();
+  await expect(edit).toHaveText("");
+  await edit.focus();
+  await expect(edit).toBeFocused();
+  await edit.press("Enter");
+  await expect(page.getByLabel("Task name", { exact: true })).toHaveValue("Reading");
+});
+
 test("browses saved graph periods and expands older session history", async ({
   extension,
 }, testInfo) => {
@@ -336,9 +409,21 @@ test("browses saved graph periods and expands older session history", async ({
   });
   await page.getByRole("button", { name: "Statistics", exact: true }).click();
   await expect(page.getByRole("heading", { name: "This week" })).toBeVisible();
+  await expect(page.locator(".session-row")).toHaveCount(0);
+  const history = page.locator(".session-history-card > summary");
+  await history.click();
   await expect(page.locator(".session-row")).toHaveCount(5);
-  await page.getByRole("button", { name: "Show 5 more sessions" }).click();
-  await expect(page.locator(".session-row")).toHaveCount(7);
+  await expect(page.getByRole("button", { name: "Newer", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Older", exact: true }).click();
+  await expect(page.locator(".session-row")).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "Older", exact: true })).toBeDisabled();
+  await history.click();
+  await expect(page.locator(".session-row")).toHaveCount(0);
+  await history.focus();
+  await history.press("Enter");
+  await expect(page.locator(".session-row")).toHaveCount(5);
+  await expect(page.getByRole("button", { name: "Newer", exact: true })).toBeDisabled();
+  await history.click();
   await page.getByRole("button", { name: "Month", exact: true }).click();
   const monthDays = await page.evaluate(() => {
     const now = new Date();

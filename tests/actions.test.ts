@@ -47,6 +47,22 @@ it("switches from countdown to total focus time counting upward at the target", 
   assert.doesNotMatch(later, /\+02:34/);
   assert.equal(data.history.length, 0);
 });
+it("keeps the countdown compact without adding panels or controls", () => {
+  const data = reduce(defaults(), { type: "start", minutes: 10 }, 1000);
+  const html = renderToStaticMarkup(
+    createElement(TimerReadout, { timer: data.timer, now: 1000 + 150000 }),
+  );
+  assert.match(html, /FOCUS REMAINING/);
+  assert.match(html, /07:30/);
+  assert.match(html, /02:30/);
+  assert.doesNotMatch(html, /focus-countdown|focus-dial|<svg/);
+  assert.doesNotMatch(html, /<button|<input|<select|Pause|Extend|Finish/);
+  const long = reduce(defaults(), { type: "start", minutes: 180 }, 1000);
+  assert.match(
+    renderToStaticMarkup(createElement(TimerReadout, { timer: long.timer, now: 1000 })),
+    /180:00/,
+  );
+});
 it("shows only End break, then returns to an empty home action area", () => {
   let data = reduce(defaults(), { type: "start", minutes: 1 }, 1000);
   data = reduce(data, { type: "break", minutes: 5 }, 62000);
@@ -57,7 +73,7 @@ it("shows only End break, then returns to an empty home action area", () => {
   data = reduce(data, { type: "skip" }, 64000);
   assert.equal(render(data, 64000), "");
 });
-it("shows factual statistics, partial history and a clear Back to timer action", () => {
+it("shows factual statistics with session history collapsed by default", () => {
   const now = +new Date(2026, 10, 9, 12);
   let data = reduce(
     defaults(),
@@ -75,9 +91,9 @@ it("shows factual statistics, partial history and a clear Back to timer action",
   assert.match(html, /Focused today/);
   assert.match(html, /This week/);
   assert.match(html, /All-time sessions<\/span><strong>1<\/strong>/);
-  assert.match(html, /Ended early/);
-  assert.match(html, /0:30/);
-  assert.equal((html.match(/class="session-row"/g) || []).length, 2);
+  assert.match(html, /<details class="session-history-card"><summary/);
+  assert.match(html, /All sessions/);
+  assert.doesNotMatch(html, /session-row|Show 5 more/);
 });
 it("renders quiet daily goal completion with uncapped actual time and a capped indicator", () => {
   const now = +new Date(2026, 10, 9, 12);

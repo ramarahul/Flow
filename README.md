@@ -12,6 +12,8 @@ focus statistics.
   optional website access.
 - Browse calendar week, month, and year graphs with matching task totals and saved
   session history. Weeks start on Monday; yearly bars represent months.
+- Expand **All sessions** in Stats to browse saved records, five per page. Collapse
+  it again to keep the overview compact.
 - Choose light, dark, or system appearance. Hide the home duration selector for a
   simpler, single-button start screen.
 - Export and import local backups.
@@ -34,7 +36,7 @@ screen or overlay. Partial focus time is saved, and the session cannot be resume
 Changing tasks during a session requires confirmation. Previously recorded time
 stays with its original task, while future focus time goes to the new selection.
 
-Use **Edit task** beside a custom task to change its name or goal, archive it, or
+Use the **pencil icon** beside a custom task (hover for **Edit task**) to change its name or goal, archive it, or
 delete it. Use **Archived tasks** above the list to find tasks you can restore.
 Renaming preserves recorded time. Deletion requires
 confirmation and removes its goal; past focus remains in statistics as **Deleted

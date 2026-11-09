@@ -382,7 +382,30 @@ nav {
 .subview {
   max-height: 490px;
   overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+  overscroll-behavior: contain;
+}
+.subview::-webkit-scrollbar {
+  width: 8px;
+}
+.subview::-webkit-scrollbar-track {
+  background: transparent;
+}
+.subview::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 8px;
+}
+.subview::-webkit-scrollbar-thumb:hover {
+  background-color: var(--accent);
+}
+.subview.stats-view,
+.subview.settings {
+  scrollbar-gutter: stable;
+  padding-right: 10px;
 }
 .blocked > .secondary {
   margin-top: 24px;
@@ -826,9 +849,49 @@ footer button {
   color: var(--muted);
   margin: 12px 0 0;
 }
-.history-more {
-  margin-top: 14px;
-  min-height: 40px;
+.session-history-card > summary {
+  cursor: pointer;
+  list-style: none;
+  min-height: 36px;
+  margin-bottom: 0;
+}
+.session-history-card > summary::-webkit-details-marker {
+  display: none;
+}
+.session-history-card > summary h2 {
+  flex: 1;
+}
+.session-history-card > summary svg {
+  transition: transform 0.16s;
+}
+.session-history-card[open] > summary {
+  margin-bottom: 16px;
+}
+.session-history-card[open] > summary svg {
+  transform: rotate(180deg);
+}
+.session-history-card > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+.session-history-pagination {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 16px;
+}
+.session-history-pagination > span {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted);
+}
+.session-history-pagination > button {
+  grid-row: 2;
+  min-height: 36px;
+  padding: 8px;
 }
 .session-row {
   display: flex;
@@ -1001,14 +1064,18 @@ footer button {
   position: relative;
 }
 .task-row .task-card {
-  padding-right: 96px;
+  padding-right: 64px;
   min-height: 72px;
 }
 .task-edit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   position: absolute;
   top: 18px;
   right: 10px;
-  padding: 8px 10px;
+  padding: 8px;
+  width: 36px;
   min-height: 36px;
   border: 1px solid var(--line);
   border-radius: 10px;
