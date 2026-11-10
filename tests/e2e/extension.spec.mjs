@@ -313,7 +313,16 @@ test("hides the home task selector without losing task selection or tracking", a
 test("liquid background settles, respects reduced motion, and leaves controls clickable", async ({
   extension,
 }, testInfo) => {
-  const { page } = extension;
+  const { page, worker } = extension;
+  // Keep settings saves asynchronous even when the local worker responds quickly.
+  await page.evaluate(() => {
+    const send = chrome.runtime.sendMessage.bind(chrome.runtime);
+    chrome.runtime.sendMessage = async (message) => {
+      if (message.action?.type === "settings")
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      return send(message);
+    };
+  });
   await page.emulateMedia({ reducedMotion: "no-preference" });
   const wake = page.locator("canvas.liquid-background");
   const paintedPixels = () =>
@@ -335,15 +344,19 @@ test("liquid background settles, respects reduced motion, and leaves controls cl
   await expect.poll(paintedPixels, { timeout: 8000 }).toBe(0);
   await expect(timerSurface).toHaveCSS("translate", "none");
   await page.mouse.move(190, 180);
+  await expect.poll(paintedPixels).toBeGreaterThan(0);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(wake).toBeHidden();
-  expect(await paintedPixels()).toBe(0);
+  // CSS hides the canvas before the media-query change event clears its pixels.
+  await expect.poll(paintedPixels).toBe(0);
   await expect(timerSurface).toHaveCSS("translate", "none");
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const effect = page.getByRole("checkbox", { name: "Liquid surface effect" });
   await expect(effect).toBeChecked();
-  await effect.uncheck();
+  await effect.click();
+  await expect(effect).not.toBeChecked();
+  await expect.poll(async () => (await stored(worker)).settings.liquidEffect).toBe(false);
   await expect(wake).toHaveCount(0);
   await page.reload();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
@@ -351,7 +364,11 @@ test("liquid background settles, respects reduced motion, and leaves controls cl
     page.getByRole("checkbox", { name: "Liquid surface effect" }),
   ).not.toBeChecked();
   await expect(wake).toHaveCount(0);
-  await page.getByRole("checkbox", { name: "Liquid surface effect" }).check();
+  await page.getByRole("checkbox", { name: "Liquid surface effect" }).click();
+  await expect(
+    page.getByRole("checkbox", { name: "Liquid surface effect" }),
+  ).toBeChecked();
+  await expect.poll(async () => (await stored(worker)).settings.liquidEffect).toBe(true);
   await expect(wake).toBeVisible();
   await page.getByRole("button", { name: "Flow timer" }).click();
   await page.getByRole("button", { name: "Start 10 minute focus session" }).click();
