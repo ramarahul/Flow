@@ -132,7 +132,7 @@ After reviewing and merging this migration through the normal protected PR proce
 
 1. Keep `CWS_AUTO_RELEASE` unset or `false` until you intend to use the existing
    opt-in automatic release path. This migration does not enable it or bump versions.
-2. Run **Actions ? Chrome Web Store release ? Run workflow**, choose **main**,
+2. Run **Actions → Publish — automatic → Run workflow**, choose **main**,
    its exact current version, and mode **check**. Approve the same protected
    environment deployment after CI passes.
 3. The publisher verifies artifact commit/version/checksum and issues only a V2
@@ -148,7 +148,7 @@ mocked HTTP requests.
 
 ## Release a version
 
-The easiest path is **Actions → Prepare Flow release → Run workflow → main**.
+The easiest path is **Actions → Release Flow → Run workflow → main**.
 Choose **bug-fix** or **feature**, optionally add a short summary, and follow the
 generated release PR. Version synchronization, formatting, and CI dispatch are
 automatic. Merge after checks pass, then approve the existing publishing job
@@ -179,7 +179,7 @@ then uploads the exact tested package and submits it for normal store review.
 Ordinary feature merges and dependency updates with no Flow version change do not
 submit anything. Initial branch pushes do not automatically publish.
 
-For a manual release, use Actions → **Chrome Web Store release** → Run workflow,
+For a manual release, use Actions → **Publish — automatic** → Run workflow,
 choose **main**, enter its exact version, and select `upload` for a draft or `submit`
 for review, or `check` for read-only access verification. This runs the same validation and protected publishing job regardless
 of the automation variable. A draft is not a publication. Use the dashboard to
