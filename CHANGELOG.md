@@ -5,6 +5,8 @@ which version is currently published; a changelog entry does not mean approval.
 
 ## [Unreleased]
 
+## [1.1.0]
+
 - Remove blur from the blocking overlay; use neutral dimming and a solid panel.
 
 - Keep the active countdown compact with a thin progress bar, and make session
