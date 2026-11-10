@@ -9,6 +9,7 @@ export async function installFocusOverlay() {
   let host: HTMLElement | null = null;
   let dialog: HTMLDialogElement | null = null;
   let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
+  let releaseScrollLock: (() => void) | undefined;
   type OverlayData = {
     timer: {
       mode: string;
@@ -22,8 +23,74 @@ export async function installFocusOverlay() {
   const hide = () => {
     dialog?.close();
     host?.remove();
+    releaseScrollLock?.();
+    releaseScrollLock = undefined;
     host = null;
     dialog = null;
+  };
+  const lockPage = () => {
+    const saved: {
+      style: CSSStyleDeclaration;
+      name: string;
+      value: string;
+      priority: string;
+      locked: string;
+    }[] = [];
+    for (const element of [document.documentElement, document.body]) {
+      if (!element) continue;
+      for (const [name, locked] of [
+        ["overflow-x", "hidden"],
+        ["overflow-y", "hidden"],
+        ["overscroll-behavior-x", "none"],
+        ["overscroll-behavior-y", "none"],
+      ]) {
+        saved.push({
+          style: element.style,
+          name,
+          value: element.style.getPropertyValue(name),
+          priority: element.style.getPropertyPriority(name),
+          locked,
+        });
+        element.style.setProperty(name, locked, "important");
+      }
+    }
+    const blockScroll = (event: WheelEvent | TouchEvent) => {
+      if (!dialog || !host) return;
+      const point = "touches" in event ? event.touches[0] : event;
+      const rect = dialog.getBoundingClientRect();
+      const inside =
+        point &&
+        point.clientX >= rect.left &&
+        point.clientX <= rect.right &&
+        point.clientY >= rect.top &&
+        point.clientY <= rect.bottom;
+      // Only the warning may scroll. Never chain a gesture into the website.
+      if (!inside && event.cancelable) event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    const blockKeys = (event: KeyboardEvent) => {
+      if (!host) return;
+      if (!event.composedPath().includes(host) && event.cancelable)
+        event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    window.addEventListener("wheel", blockScroll, { capture: true, passive: false });
+    window.addEventListener("touchmove", blockScroll, { capture: true, passive: false });
+    window.addEventListener("keydown", blockKeys, true);
+    releaseScrollLock = () => {
+      window.removeEventListener("wheel", blockScroll, true);
+      window.removeEventListener("touchmove", blockScroll, true);
+      window.removeEventListener("keydown", blockKeys, true);
+      for (const { style, name, value, priority, locked } of saved) {
+        if (
+          style.getPropertyValue(name) !== locked ||
+          style.getPropertyPriority(name) !== "important"
+        )
+          continue;
+        if (value) style.setProperty(name, value, priority);
+        else style.removeProperty(name);
+      }
+    };
   };
   const update = (data: OverlayData) => {
     latest = data;
@@ -67,6 +134,7 @@ export async function installFocusOverlay() {
         width: min(360px,calc(100vw - 40px));
         max-height: calc(100vh - 40px);
         overflow: auto;
+        overscroll-behavior: contain;
         padding: 32px;
         border: 1px solid #c5b5e1;
         border-radius: 20px;
@@ -163,6 +231,7 @@ export async function installFocusOverlay() {
     shadow.adoptedStyleSheets = [style];
     shadow.append(dialog);
     document.documentElement.append(host);
+    lockPage();
     dialog.showModal();
     title.focus();
   };

@@ -3,10 +3,25 @@ import { strict as assert } from "node:assert";
 import { defaults, reduce } from "../src/domain.js";
 import { installFocusOverlay } from "../src/overlay.js";
 
-// Small DOM/timer harness for lifecycle behavior. Real Chrome rendering is a
-// separate manual check; this verifies deadline handling without real sleeps.
+// Small DOM/timer harness for deadline handling without real sleeps.
+// Native scrolling and modal behavior are covered in e2e/overlay.spec.mjs.
 it("removes the warning at its deadline and restores it only for a new countdown", async () => {
   class Element {
+    style = {
+      values: new Map<string, { value: string; priority: string }>(),
+      getPropertyValue(name: string) {
+        return this.values.get(name)?.value ?? "";
+      },
+      getPropertyPriority(name: string) {
+        return this.values.get(name)?.priority ?? "";
+      },
+      setProperty(name: string, value: string, priority = "") {
+        this.values.set(name, { value, priority });
+      },
+      removeProperty(name: string) {
+        this.values.delete(name);
+      },
+    };
     children: Element[] = [];
     parent: Element | null = null;
     open = false;
@@ -47,6 +62,7 @@ it("removes the warning at its deadline and restores it only for a new countdown
     onclick?: () => Promise<void>;
   }
   const root = new Element("root");
+  root.style.setProperty("overflow-y", "scroll");
   const events = new Map<string, () => void>();
   const tasks = new Map<number, () => void>();
   let nextTask = 0;
@@ -105,12 +121,20 @@ it("removes the warning at its deadline and restores it only for a new countdown
     await installFocusOverlay();
     assert.equal(root.children.length, 1);
     assert.equal(tasks.size, 1);
+    assert.equal(root.style.getPropertyValue("overflow-y"), "hidden");
+    assert.equal(root.style.getPropertyPriority("overflow-y"), "important");
+    assert(events.has("wheel"));
     await installFocusOverlay();
     assert.equal(root.children.length, 1);
     now += 600000;
     [...tasks.values()][0]();
     assert.equal(root.children.length, 0);
     assert.equal(tasks.size, 0);
+    assert.equal(root.style.getPropertyValue("overflow-y"), "scroll");
+    assert.equal(root.style.getPropertyPriority("overflow-y"), "");
+    assert(!events.has("wheel"));
+    assert(!events.has("touchmove"));
+    assert(!events.has("keydown"));
     data = reduce(data, { type: "extend", minutes: 5 }, now);
     changed({ flow: { newValue: data } }, "local");
     assert.equal(root.children.length, 1);

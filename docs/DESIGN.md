@@ -168,6 +168,11 @@ an ever-growing list or introduce competing chart colors.
 Use a neutral opacity-only backdrop (`rgba(0,0,0,.45)`) and a solid surface panel
 matching `--surface`, with the existing text and border colors. Keep the underlying
 website sharp. No backdrop filters, blur, foggy shadows, movement, or fades. The
+modal must lock document scrolling and intercept wheel/touch gestures outside the
+warning, including gestures over nested feeds. Contain scrolling inside the
+warning on small screens; stop page keyboard handlers while it is open. Restore
+the page's original inline scroll styles and remove input guards when it closes.
+This requires no additional extension permissions. The
 overlay's isolated stylesheet uses literal matching colors because Chrome injects
 the function without the popup stylesheet. Preserve modal blocking, keyboard
 protection, partial-time interruption, and automatic removal at the focus target.
