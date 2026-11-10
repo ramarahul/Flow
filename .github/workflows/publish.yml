@@ -1,4 +1,4 @@
-name: Chrome Web Store release
+name: Publish — automatic
 
 on:
   push:

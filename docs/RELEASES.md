@@ -18,7 +18,12 @@ the published version while an update is reviewed.
 
 ## Recommended: use the GitHub button
 
-After this workflow is merged to main, open **Actions → Prepare Flow release →
+Use **Release Flow** to start a release. The other sidebar entries are supporting
+automation: **Checks — automatic** validates changes, and **Publish — automatic**
+handles the tested Store upload after approval. **Dependabot Updates** is managed
+by GitHub for dependency updates; it is not another release step.
+
+After this workflow is merged to main, open **Actions → Release Flow →
 Run workflow** and choose **main**. Select **bug-fix** for the next patch version,
 or **feature** for the next minor version. You do not need to enter a version.
 Optionally enter a short summary; otherwise the workflow uses the existing
@@ -42,7 +47,7 @@ Organization policy may require an administrator to enable PR creation.
 Finish the existing release PR before preparing another version. Re-running the
 same version preparation updates its bot-managed release branch; do not keep
 unrelated manual work on that branch. If CI dispatch fails after PR creation,
-the summary still links the PR; run **CI** manually on its release branch or inspect
+the summary still links the PR; run **Checks — automatic** manually on its release branch or inspect
 the failed dispatch before retrying. No release preparation workflow was executed
 against GitHub during implementation.
 
@@ -104,7 +109,7 @@ step; merging alone does not bypass it.
 
 ## Manual release and recovery
 
-You can keep automation off and use **Actions → Chrome Web Store release → Run
+You can keep automation off and use **Actions → Publish — automatic → Run
 workflow** on main. Enter the exact prepared version and choose `upload` for a draft
 or `submit` for review. Mode `check` validates OIDC and reads item status without
 uploading or publishing; use it first after the authentication migration. All modes

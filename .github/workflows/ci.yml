@@ -1,4 +1,4 @@
-name: CI
+name: Checks — automatic
 
 on:
   pull_request:

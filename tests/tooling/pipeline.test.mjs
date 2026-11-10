@@ -5,6 +5,7 @@ import { parse } from "yaml";
 
 it("protects PR jobs and gates on every stage, including merge-queue checks", async () => {
   const ci = parse(await readFile(".github/workflows/ci.yml", "utf8"));
+  assert.equal(ci.name, "Checks — automatic");
   assert.deepEqual(ci.permissions, { contents: "read" });
   assert.deepEqual(ci.on.pull_request.branches, ["main"]);
   assert("merge_group" in ci.on);
@@ -101,6 +102,7 @@ it("uses scoped OIDC impersonation only after protected release verification", a
 });
 it("gates automatic version releases and manual drafts on main, verification, and environment approval", async () => {
   const workflow = parse(await readFile(".github/workflows/publish.yml", "utf8"));
+  assert.equal(workflow.name, "Publish — automatic");
   assert.deepEqual(workflow.on.push.branches, ["main"]);
   assert("workflow_dispatch" in workflow.on);
   assert.equal(workflow.on.workflow_dispatch.inputs.mode.default, "upload");
@@ -132,6 +134,7 @@ it("pins the runner OS to the Ubuntu release supported by the locked browser too
 it("prepares release PRs from main without publishing credentials or bypassing CI", async () => {
   const text = await readFile(".github/workflows/prepare-release.yml", "utf8");
   const workflow = parse(text);
+  assert.equal(workflow.name, "Release Flow");
   assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
   assert.deepEqual(workflow.on.workflow_dispatch.inputs.change.options, [
     "bug-fix",
