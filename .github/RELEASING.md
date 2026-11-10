@@ -148,6 +148,19 @@ mocked HTTP requests.
 
 ## Release a version
 
+The easiest path is **Actions → Prepare Flow release → Run workflow → main**.
+Choose **bug-fix** or **feature**, optionally add a short summary, and follow the
+generated release PR. Version synchronization, formatting, and CI dispatch are
+automatic. Merge after checks pass, then approve the existing publishing job
+if `CWS_AUTO_RELEASE=true` is enabled. Otherwise use the manual release path below.
+
+Enable **Settings → Actions → General → Workflow permissions → Allow GitHub
+Actions to create and approve pull requests** once. Preparation creates a PR but
+does not approve/merge it or publish anything. Its main-only job has GitHub
+contents/PR write permissions plus Actions write for explicit CI dispatch, and
+has no OIDC permission or publishing credentials. No extra secrets are needed.
+See [the recommended GitHub-button flow](../docs/RELEASES.md#recommended-use-the-github-button).
+
 Start with [the release guide](../docs/RELEASES.md), which explains when to release,
 which version to choose, and the preparation command. Do not upload another build
 over the first submission while it is under review.

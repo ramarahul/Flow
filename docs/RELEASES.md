@@ -16,7 +16,43 @@ Google reviews updates too. A successful upload or GitHub Actions run does not
 mean the update is approved or publicly available. Existing users continue using
 the published version while an update is reviewed.
 
-## Choose the next version
+## Recommended: use the GitHub button
+
+After this workflow is merged to main, open **Actions → Prepare Flow release →
+Run workflow** and choose **main**. Select **bug-fix** for the next patch version,
+or **feature** for the next minor version. You do not need to enter a version.
+Optionally enter a short summary; otherwise the workflow uses the existing
+Unreleased changelog notes. If both are empty, enter a summary in the form and rerun.
+
+The workflow updates all four release files, formats them, creates or updates
+`release/vVERSION`, opens a release PR, and explicitly starts CI. Follow the PR
+link in its run summary. Review and merge after checks pass, then approve the
+existing protected publishing job. With `CWS_AUTO_RELEASE=true` already enabled,
+no separate publishing dispatch is needed. This change does not enable that opt-in.
+Otherwise use the existing manual publishing workflow after merging.
+
+One-time repository setting: under **Settings → Actions → General → Workflow
+permissions**, enable **Allow GitHub Actions to create and approve pull requests**.
+The workflow only creates/updates a PR; it does not approve or merge it. Leave the
+default token permissions read-only; this main-only job requests only the GitHub
+write permissions needed for the release branch/PR and CI dispatch. It has no
+Google OIDC permission, no publishing environment, and no Store credentials.
+Organization policy may require an administrator to enable PR creation.
+
+Finish the existing release PR before preparing another version. Re-running the
+same version preparation updates its bot-managed release branch; do not keep
+unrelated manual work on that branch. If CI dispatch fails after PR creation,
+the summary still links the PR; run **CI** manually on its release branch or inspect
+the failed dispatch before retrying. No release preparation workflow was executed
+against GitHub during implementation.
+
+The PR action is pinned to the verified upstream v8 commit
+`15733dbdfeedb4f7fdb73d13c6f5ac83b710fab8`. The built-in `GITHUB_TOKEN` is used;
+no PAT, GitHub App secret, or Google credential is added. Explicit dispatch uses
+GitHub's supported [workflow-dispatch exception](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)
+instead of depending on bot-triggered push/PR events.
+
+## Alternative: choose the next version locally
 
 Flow uses three numeric components, with no `v` prefix or prerelease suffix in the
 manifest. Choose a version higher than the current source and the store version.

@@ -121,10 +121,54 @@ it("gates automatic version releases and manual drafts on main, verification, an
 });
 
 it("pins the runner OS to the Ubuntu release supported by the locked browser tooling", async () => {
-  for (const file of ["ci.yml", "publish.yml"]) {
+  for (const file of ["ci.yml", "publish.yml", "prepare-release.yml"]) {
     const workflow = parse(await readFile(`.github/workflows/${file}`, "utf8"));
     for (const job of Object.values(workflow.jobs)) {
       if (job["runs-on"]) assert.equal(job["runs-on"], "ubuntu-24.04");
     }
+  }
+});
+
+it("prepares release PRs from main without publishing credentials or bypassing CI", async () => {
+  const text = await readFile(".github/workflows/prepare-release.yml", "utf8");
+  const workflow = parse(text);
+  assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
+  assert.deepEqual(workflow.on.workflow_dispatch.inputs.change.options, [
+    "bug-fix",
+    "feature",
+  ]);
+  assert.deepEqual(workflow.permissions, { contents: "read" });
+  assert.match(workflow.jobs.prepare.if, /refs\/heads\/main/);
+  assert.deepEqual(workflow.jobs.prepare.permissions, {
+    contents: "write",
+    "pull-requests": "write",
+    actions: "write",
+  });
+  assert.equal(workflow.jobs.prepare.environment, undefined);
+  assert(!/GCP_|CWS_|google-github-actions|publish-store|pull_request_target/.test(text));
+  const steps = workflow.jobs.prepare.steps;
+  assert.equal(steps[0].with.ref, "main");
+  assert.equal(steps[0].with["persist-credentials"], false);
+  assert(steps.some((step) => step.run === "npm ci --ignore-scripts"));
+  const pr = steps.find((step) => step.id === "pr");
+  assert.equal(pr.with.base, "main");
+  assert.equal(pr.with["delete-branch"], false);
+  assert.equal(pr.with.branch, "release/v${{ steps.version.outputs.version }}");
+  assert.deepEqual(pr.with["add-paths"].trim().split("\n"), [
+    "package.json",
+    "package-lock.json",
+    "public/manifest.json",
+    "CHANGELOG.md",
+  ]);
+  assert.equal(
+    pr.uses,
+    "peter-evans/create-pull-request@15733dbdfeedb4f7fdb73d13c6f5ac83b710fab8",
+  );
+  assert.match(steps.at(-1).run, /gh workflow run ci.yml/);
+  assert.equal(steps.at(-1).env.GH_TOKEN, "${{ github.token }}");
+  for (const step of steps) {
+    if (step.uses) assert.match(step.uses, /@[a-f0-9]{40}$/);
+    assert(!step.run?.includes("${{ inputs."));
+    assert(!/gh pr merge|git push.*main/.test(step.run ?? ""));
   }
 });

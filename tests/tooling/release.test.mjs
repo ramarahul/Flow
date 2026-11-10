@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname, basename } from "node:path";
+import { execFileSync } from "node:child_process";
 import { prepareVersion, compareVersions } from "../../scripts/release-version.mjs";
 import { releasePlan } from "../../scripts/release-plan.mjs";
 
@@ -75,6 +76,40 @@ it("prepares all version files and notes together, without modifying files on va
     assert.equal(
       JSON.parse(await readFile(join(root, "package.json"), "utf8")).version,
       "1.0.1",
+    );
+    assert.equal(
+      await prepareVersion(
+        "minor",
+        root,
+        "Add hourly statistics.\n## Not a version heading",
+      ),
+      "1.1.0",
+    );
+    const featureNotes = await readFile(join(root, "CHANGELOG.md"), "utf8");
+    assert.match(
+      featureNotes,
+      /## \[1.1.0\]\n\n- Add hourly statistics\.\n  ## Not a version heading/,
+    );
+    assert(!featureNotes.includes("\n## Not a version heading"));
+    await assert.rejects(
+      prepareVersion("patch", root, "x".repeat(10001)),
+      /Release summary/,
+    );
+    assert.equal(await readFile(join(root, "CHANGELOG.md"), "utf8"), featureNotes);
+    const output = join(root, "github-output");
+    execFileSync(process.execPath, [resolve("scripts/release-version.mjs"), "patch"], {
+      cwd: root,
+      env: {
+        ...process.env,
+        RELEASE_NOTES: "Fix website scrolling.",
+        GITHUB_OUTPUT: output,
+      },
+      stdio: "pipe",
+    });
+    assert.equal(await readFile(output, "utf8"), "version=1.1.1\n");
+    assert.equal(
+      JSON.parse(await readFile(join(root, "public/manifest.json"), "utf8")).version,
+      "1.1.1",
     );
   } finally {
     assert.equal(dirname(resolve(root)), resolve(tmpdir()));

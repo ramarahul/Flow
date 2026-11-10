@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile, writeFile } from "node:fs/promises";
+import { appendFile, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -24,7 +24,11 @@ export function compareVersions(left, right) {
     if (a[index] !== b[index]) return Math.sign(a[index] - b[index]);
   return 0;
 }
-export async function prepareVersion(change, root = process.cwd()) {
+export async function prepareVersion(change, root = process.cwd(), summary = "") {
+  assert(
+    typeof summary === "string" && summary.length <= 10000,
+    "Release summary must be text, at most 10000 characters",
+  );
   const paths = [
     "package.json",
     "package-lock.json",
@@ -57,15 +61,22 @@ export async function prepareVersion(change, root = process.cwd()) {
   const match = /(^## \[Unreleased\][^\n]*\n)([\s\S]*?)(?=^## |$(?![\s\S]))/m.exec(
     contents[3],
   );
+  assert(match, "CHANGELOG.md must contain ## [Unreleased]");
+  const notes = [
+    summary.trim() ? `- ${summary.trim().replace(/\r?\n/g, "\n  ")}` : "",
+    match[2].trim(),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
   assert(
-    match && match[2].trim(),
-    "Add release notes below ## [Unreleased] in CHANGELOG.md first",
+    notes,
+    "Enter a release summary in the GitHub form or add release notes below ## [Unreleased] in CHANGELOG.md",
   );
   assert(!contents[3].includes(`## [${next}]`), "This changelog version already exists");
   pkg.version = lock.version = lock.packages[""].version = manifest.version = next;
   const changelog = contents[3].replace(
     match[0],
-    `${match[1]}\n## [${next}]\n\n${match[2].trim()}\n\n`,
+    `${match[1]}\n## [${next}]\n\n${notes}\n\n`,
   );
   const updated = [pkg, lock, manifest].map(
     (value) => JSON.stringify(value, null, 2) + "\n",
@@ -81,7 +92,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
       process.argv.length === 3,
       "Usage: npm run release:prepare -- patch|minor|major|1.2.3",
     );
-    const version = await prepareVersion(process.argv[2]);
+    const version = await prepareVersion(
+      process.argv[2],
+      process.cwd(),
+      process.env.RELEASE_NOTES ?? "",
+    );
+    if (process.env.GITHUB_OUTPUT)
+      await appendFile(process.env.GITHUB_OUTPUT, `version=${version}\n`);
     console.log(
       `Prepared ${version}. Review the version files and changelog, run npm run format, and open a PR. No commit, tag, upload, or publication was performed.`,
     );
