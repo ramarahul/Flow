@@ -1,70 +1,23 @@
-import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { focusSegments, type Data } from "./domain.js";
-import { dayWindow, taskTotals, taskLabel, focusDuration } from "./goals.js";
+import type { Data } from "./domain.js";
+import { taskLabel, focusDuration } from "./goals.js";
 
-export function TaskHistory({ data, now }: { data: Data; now: number }) {
-  const [days, setDays] = useState(1),
-    [offset, setOffset] = useState(0);
-  const totals = taskTotals(data, now, days, offset);
-  const earliest = focusSegments(data, now).reduce(
-    (first, segment) => Math.min(first, segment.start),
-    now,
-  );
+export function TaskHistory({
+  data,
+  totals,
+  periodLabel,
+}: {
+  data: Data;
+  totals: Map<string | null, number>;
+  periodLabel: string;
+}) {
   const entries = [...totals].sort((a, b) => b[1] - a[1]);
-  const start = dayWindow(now, offset - days + 1).date,
-    end = dayWindow(now, offset).date;
-  const date = (value: Date) =>
-    value.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: value.getFullYear() !== new Date(now).getFullYear() ? "numeric" : undefined,
-    });
   return (
     <div className="task-history-card">
       <div className="stats-card-title">
         <h2>Focus by task</h2>
-        <div className="history-period">
-          <button
-            aria-pressed={days === 1}
-            onClick={() => {
-              setDays(1);
-              setOffset(0);
-            }}
-          >
-            Daily
-          </button>
-          <button
-            aria-pressed={days === 7}
-            onClick={() => {
-              setDays(7);
-              setOffset(0);
-            }}
-          >
-            Weekly
-          </button>
-        </div>
       </div>
-      <div className="history-date">
-        <button
-          className="icon"
-          aria-label="Previous period"
-          disabled={+start <= earliest}
-          onClick={() => setOffset(offset - days)}
-        >
-          <ChevronLeft size={17} />
-        </button>
-        <span>{days === 1 ? date(end) : `${date(start)} – ${date(end)}`}</span>
-        <button
-          className="icon"
-          aria-label="Next period"
-          disabled={offset >= 0}
-          onClick={() => setOffset(Math.min(0, offset + days))}
-        >
-          <ChevronRight size={17} />
-        </button>
-      </div>
-      <p className="quiet">Actual focus time. Goal targets are separate.</p>
+      <p className="chart-date-range">{periodLabel}</p>
+      <p className="quiet">Same period as the graph. Goal targets are separate.</p>
       {entries.length ? (
         entries.map(([id, ms]) => (
           <div className="task-history-row" key={id ?? "quick-focus"}>

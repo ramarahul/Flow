@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, ChevronDown, Plus, Settings2, Check } from "lucide-react";
+import { ArrowLeft, ChevronDown, Plus, Check, Pencil } from "lucide-react";
 import type { Action, Data } from "./domain.js";
 import type { Task, GoalInput } from "./tasks.js";
 import { taskTotals, taskProgress, taskLabel, focusDuration } from "./goals.js";
@@ -85,7 +85,6 @@ export function TaskViews({
   onBack: () => void;
 }) {
   const [editor, setEditor] = useState<Task | "new" | null>(null);
-  const [manage, setManage] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [pending, setPending] = useState<{ id: string | null } | null>(null);
   const [working, setWorking] = useState(false);
@@ -99,11 +98,14 @@ export function TaskViews({
       return;
     }
     setWorking(true);
-    const next = await send({ type: "selectTask", taskId: id, confirm });
-    setWorking(false);
-    if (next) {
-      setPending(null);
-      onBack();
+    try {
+      const next = await send({ type: "selectTask", taskId: id, confirm });
+      if (next) {
+        setPending(null);
+        onBack();
+      }
+    } finally {
+      setWorking(false);
     }
   };
   if (editor)
@@ -116,17 +118,23 @@ export function TaskViews({
         onBack={() => setEditor(null)}
       />
     );
-  const active = data.tasks.filter((task) => task.archived === showArchived);
+  const visible = data.tasks.filter((task) => task.archived === showArchived);
   return (
     <section className="subview task-view">
       <button className="back-home" onClick={onBack}>
         <ArrowLeft size={20} /> Back to timer
       </button>
-      <h1>{mode === "tasks" ? "Choose your focus" : "Today's goals"}</h1>
+      <h1>
+        {showArchived
+          ? "Archived tasks"
+          : mode === "tasks"
+            ? "Choose your focus"
+            : "Today's goals"}
+      </h1>
       <p className="subtitle">
-        {mode === "tasks"
-          ? "One task at a time."
-          : "Small sessions add up. Keep your own pace."}
+        {showArchived
+          ? "Restore a task to focus on it again."
+          : "Choose a task. Use the pencil to edit it."}
       </p>
       {pending && (
         <div className="switch-confirm" role="alert">
@@ -142,104 +150,88 @@ export function TaskViews({
           >
             Switch and continue
           </button>
-          <button className="text-button full" onClick={() => setPending(null)}>
+          <button
+            className="text-button full"
+            disabled={working}
+            onClick={() => setPending(null)}
+          >
             Cancel
           </button>
         </div>
       )}
       <div className="task-toolbar">
-        <button className="secondary" onClick={() => setEditor("new")}>
+        <button className="secondary" disabled={working} onClick={() => setEditor("new")}>
           <Plus size={15} /> New task
         </button>
         <button
-          className="icon"
-          aria-label="Manage tasks"
-          title="Manage tasks"
-          aria-pressed={manage}
-          onClick={() => setManage(!manage)}
-        >
-          <Settings2 size={17} />
-        </button>
-      </div>
-      {!showArchived && (
-        <button
-          className="task-card"
-          aria-pressed={selected === null}
+          className="task-archive-link"
           disabled={working}
-          onClick={() => void choose(null)}
-        >
-          <span>
-            <strong>Quick Focus</strong>
-            <small>{focusDuration(totals.get(null) ?? 0)} today · No daily goal</small>
-          </span>
-          {selected === null && <Check size={16} />}
-        </button>
-      )}
-      {manage && (
-        <button
-          className="text-button full"
           onClick={() => setShowArchived(!showArchived)}
         >
-          {showArchived ? "Show active tasks" : "Show archived tasks"}
+          {showArchived ? "Active tasks" : "Archived tasks"}
         </button>
-      )}
-      {active.map((task) => {
+      </div>
+      <button
+        className="task-card default-task"
+        aria-pressed={selected === null}
+        disabled={working}
+        onClick={() => void choose(null)}
+      >
+        <span>
+          <strong>Quick Focus</strong>
+          <small>{focusDuration(totals.get(null) ?? 0)} today · Permanent default</small>
+        </span>
+        {selected === null && <Check size={16} />}
+      </button>
+      {visible.map((task) => {
         const progress = taskProgress(data, task.id, now, totals.get(task.id) ?? 0);
         return (
           <div className="task-list-item" key={task.id}>
-            <button
-              className="task-card"
-              aria-pressed={selected === task.id}
-              disabled={task.archived || working}
-              onClick={() => void choose(task.id)}
-            >
-              <span>
-                <strong>{taskLabel(data, task.id)}</strong>
-                <small>
-                  {focusDuration(progress.ms)}
-                  {progress.goal
-                    ? ` / ${focusDuration(progress.target)}`
-                    : " today · Goal off"}
-                </small>
-              </span>
-              {selected === task.id && <Check size={16} />}
-            </button>
+            <div className="task-row">
+              <button
+                className="task-card"
+                aria-pressed={selected === task.id}
+                disabled={task.archived || working}
+                onClick={() => void choose(task.id)}
+              >
+                <span>
+                  <strong>{taskLabel(data, task.id)}</strong>
+                  <small>
+                    {focusDuration(progress.ms)}
+                    {progress.goal
+                      ? ` / ${focusDuration(progress.target)}`
+                      : " today · Goal off"}
+                  </small>
+                </span>
+                {selected === task.id && <Check size={16} />}
+              </button>
+              <button
+                className="task-edit"
+                disabled={working}
+                aria-label={`Edit task: ${task.name}`}
+                title={`Edit task: ${task.name}`}
+                onClick={() => {
+                  setPending(null);
+                  setEditor(task);
+                }}
+              >
+                <Pencil size={16} aria-hidden="true" />
+              </button>
+            </div>
             {progress.goal && !task.archived && <GoalProgress progress={progress} />}
-            {manage && (
-              <div className="task-management">
-                <button onClick={() => setEditor(task)}>Edit task & goal</button>
-                <button
-                  disabled={working}
-                  onClick={async () => {
-                    setWorking(true);
-                    await send({
-                      type: "archiveTask",
-                      taskId: task.id,
-                      archived: !task.archived,
-                    });
-                    setWorking(false);
-                  }}
-                >
-                  {task.archived ? "Restore" : "Archive"}
-                </button>
-              </div>
-            )}
           </div>
         );
       })}
-      {!active.length && (
+      {!visible.length && (
         <p className="history-empty">
           {showArchived
             ? "No archived tasks."
-            : mode === "goals" && !manage
-              ? "No daily goals yet. Create a task, or manage tasks to enable a goal."
-              : "Create a task when you want to focus on something specific."}
+            : "Quick Focus is ready. Add a task when you want to track something specific."}
         </p>
       )}
     </section>
   );
 }
-
 function TaskEditor({
   data,
   task,
@@ -257,14 +249,89 @@ function TaskEditor({
     [target, setTarget] = useState(goal?.targetMinutes ?? 30),
     [weekdays, setWeekdays] = useState(goal?.weekdays ?? allDays),
     [enabled, setEnabled] = useState(goal?.enabled ?? true),
-    [saving, setSaving] = useState(false);
+    [saving, setSaving] = useState(false),
+    [deleting, setDeleting] = useState(false);
   return (
     <section className="subview task-view">
-      <button className="back-home" onClick={onBack}>
+      <button className="back-home" disabled={saving} onClick={onBack}>
         <ArrowLeft size={20} /> Back to tasks
       </button>
       <h1>{task ? "Edit task" : "A new focus"}</h1>
       <p className="subtitle">Your session length and daily goal stay separate.</p>
+      {task && (
+        <div className="task-editor-actions" role="group" aria-label="Task actions">
+          <button
+            className="secondary"
+            disabled={saving}
+            onClick={async () => {
+              setSaving(true);
+              try {
+                const next = await send({
+                  type: "archiveTask",
+                  taskId: task.id,
+                  archived: !task.archived,
+                });
+                if (next) onBack();
+              } finally {
+                setSaving(false);
+              }
+            }}
+          >
+            {task.archived ? "Restore task" : "Archive task"}
+          </button>
+          <button
+            className="delete-task"
+            disabled={saving}
+            onClick={() => setDeleting(true)}
+          >
+            Delete task
+          </button>
+        </div>
+      )}
+      {task && deleting && (
+        <div
+          className="delete-task-confirm"
+          role="alertdialog"
+          aria-label={`Delete ${task.name}?`}
+        >
+          <strong>Delete {task.name}?</strong>
+          <p>
+            The task and its goal will be removed permanently. Past focus time stays in
+            statistics as “Deleted task”.
+          </p>
+          {data.timer.session?.taskId === task.id && (
+            <p>
+              Your current session will continue as Quick Focus without restarting the
+              timer.
+            </p>
+          )}
+          <div>
+            <button
+              className="secondary"
+              autoFocus
+              disabled={saving}
+              onClick={() => setDeleting(false)}
+            >
+              Cancel
+            </button>
+            <button
+              className="delete-task"
+              disabled={saving}
+              onClick={async () => {
+                setSaving(true);
+                try {
+                  const next = await send({ type: "deleteTask", taskId: task.id });
+                  if (next) onBack();
+                } finally {
+                  setSaving(false);
+                }
+              }}
+            >
+              Delete permanently
+            </button>
+          </div>
+        </div>
+      )}
       <form
         className="task-form"
         onSubmit={async (event) => {
@@ -286,6 +353,7 @@ function TaskEditor({
           Task name
           <input
             required
+            autoFocus
             maxLength={60}
             value={name}
             onChange={(event) => setName(event.target.value)}

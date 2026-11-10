@@ -1,0 +1,130 @@
+# Releasing Flow
+
+## When to release
+
+Release when a useful change is tested and ready for users, rather than after every
+commit. Fixes to broken functionality or security deserve a prompt patch release.
+Feature work can accumulate on branches until it is ready. Documentation, CI, and
+repository-only changes normally do not require a new extension package.
+
+The first store release is published. Keep its matching ZIP and commit as the
+release record. Continue development on branches. For any later update already
+under review, wait for the outcome before submitting another package; use the
+Developer Dashboard deliberately if a pending submission must be replaced.
+
+Google reviews updates too. A successful upload or GitHub Actions run does not
+mean the update is approved or publicly available. Existing users continue using
+the published version while an update is reviewed.
+
+## Recommended: use the GitHub button
+
+After this workflow is merged to main, open **Actions → Prepare Flow release →
+Run workflow** and choose **main**. Select **bug-fix** for the next patch version,
+or **feature** for the next minor version. You do not need to enter a version.
+Optionally enter a short summary; otherwise the workflow uses the existing
+Unreleased changelog notes. If both are empty, enter a summary in the form and rerun.
+
+The workflow updates all four release files, formats them, creates or updates
+`release/vVERSION`, opens a release PR, and explicitly starts CI. Follow the PR
+link in its run summary. Review and merge after checks pass, then approve the
+existing protected publishing job. With `CWS_AUTO_RELEASE=true` already enabled,
+no separate publishing dispatch is needed. This change does not enable that opt-in.
+Otherwise use the existing manual publishing workflow after merging.
+
+One-time repository setting: under **Settings → Actions → General → Workflow
+permissions**, enable **Allow GitHub Actions to create and approve pull requests**.
+The workflow only creates/updates a PR; it does not approve or merge it. Leave the
+default token permissions read-only; this main-only job requests only the GitHub
+write permissions needed for the release branch/PR and CI dispatch. It has no
+Google OIDC permission, no publishing environment, and no Store credentials.
+Organization policy may require an administrator to enable PR creation.
+
+Finish the existing release PR before preparing another version. Re-running the
+same version preparation updates its bot-managed release branch; do not keep
+unrelated manual work on that branch. If CI dispatch fails after PR creation,
+the summary still links the PR; run **CI** manually on its release branch or inspect
+the failed dispatch before retrying. No release preparation workflow was executed
+against GitHub during implementation.
+
+The PR action is pinned to the verified upstream v8 commit
+`15733dbdfeedb4f7fdb73d13c6f5ac83b710fab8`. The built-in `GITHUB_TOKEN` is used;
+no PAT, GitHub App secret, or Google credential is added. Explicit dispatch uses
+GitHub's supported [workflow-dispatch exception](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)
+instead of depending on bot-triggered push/PR events.
+
+## Alternative: choose the next version locally
+
+Flow uses three numeric components, with no `v` prefix or prerelease suffix in the
+manifest. Choose a version higher than the current source and the store version.
+
+| Change                                  | Example from 1.0.0 | Command                            |
+| --------------------------------------- | ------------------ | ---------------------------------- |
+| Bug fix or small UI improvement         | 1.0.1              | `npm run release:prepare -- patch` |
+| New backward-compatible feature         | 1.1.0              | `npm run release:prepare -- minor` |
+| Breaking behavior or data compatibility | 2.0.0              | `npm run release:prepare -- major` |
+
+These are project conventions. A major bump is not a substitute for a safe data
+migration. Chrome version components must stay within its numeric bounds; the
+preparation command rejects unsupported versions. An explicit higher version is
+also supported: `npm run release:prepare -- 1.2.3`.
+
+## Prepare the release PR
+
+1. Add accurate user-facing release notes under `## [Unreleased]` in
+   [CHANGELOG.md](../CHANGELOG.md). Do not call a prepared version published.
+2. Run the appropriate `release:prepare` command. It synchronizes `package.json`,
+   both root versions in `package-lock.json`, and `public/manifest.json`, and moves
+   the notes into a versioned changelog section. It makes no Git commits, tags,
+   pushes, or network requests.
+3. Run `npm run format` and the checks in [TESTING.md](TESTING.md). Review the diff
+   and open a PR. Other normal feature PRs do not need to bump the extension version.
+4. Test the PR's CI package in Chrome, including updating an existing unpacked
+   installation without removing its data. Check that tasks, history, preferences,
+   active timers, and completion windows survive. Review any permission changes.
+5. Ensure all checks pass, review security findings and release notes, and merge
+   the version PR to `main`.
+
+## Enable automation once
+
+After the first store release is published, follow [.github/RELEASING.md](../.github/RELEASING.md)
+to configure the protected `chrome-web-store` environment, its WIF provider and
+service account variables, and publisher/extension ID variables. No new secrets
+are needed; see [the cloud trust review](PUBLISHING_OIDC.md). Enable the repository's CodeQL advanced
+setup as described there.
+
+Set the repository variable **`CWS_AUTO_RELEASE=true`**. There is no automatic
+submission until that opt-in exists. Branch restrictions remain main-only; no tag
+deployment permission or repository-write token is needed.
+
+After a higher version reaches main, automation plans the release, reruns all CI
+checks, and waits for your configured environment approval. Approve the deployment
+after confirming the version, notes, and manual checks. It uploads the tested ZIP
+and submits it to Google. The environment approval remains an intentional human
+step; merging alone does not bypass it.
+
+## Manual release and recovery
+
+You can keep automation off and use **Actions → Chrome Web Store release → Run
+workflow** on main. Enter the exact prepared version and choose `upload` for a draft
+or `submit` for review. Mode `check` validates OIDC and reads item status without
+uploading or publishing; use it first after the authentication migration. All modes
+use full CI and the protected environment.
+
+- **CI fails:** fix the failure through a PR. No package should be uploaded.
+- **Store review is already active or staged:** wait, or resolve it in the dashboard.
+  The upload script refuses to replace it automatically.
+- **Upload or submission fails:** inspect the dashboard before retrying. An upload
+  might have succeeded even if a later step or network response failed. Submit an
+  existing draft in the dashboard, or prepare a higher version for a new package.
+- **Google rejects the update:** address the stated issue, update disclosures if
+  needed, test again, and prepare a higher version when changing the package.
+- **A published update has a serious bug:** prepare a higher patch version with the
+  fix. Do not lower the version number or reuse a published version. Consider the
+  dashboard's rollback option if available for your release, and test data
+  compatibility before using it.
+
+After publication, install or update Flow from the store in a separate profile,
+verify the actual installed version, and smoke-test timers and blocking. Then add
+the real publication date to the changelog if desired and announce the store link.
+
+Official reference: [Update a Chrome Web Store item](https://developer.chrome.com/docs/webstore/update).

@@ -1,6 +1,9 @@
 name: Chrome Web Store release
 
 on:
+  push:
+    branches: [main]
+    paths: [package.json, package-lock.json, public/manifest.json]
   workflow_dispatch:
     inputs:
       version:
@@ -8,11 +11,11 @@ on:
         required: true
         type: string
       mode:
-        description: Upload a draft or submit for Chrome Web Store review
+        description: Check access without changes, upload a draft, or submit for review
         required: true
         default: upload
         type: choice
-        options: [upload, submit]
+        options: [check, upload, submit]
 
 permissions:
   contents: read
@@ -22,17 +25,50 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  verify:
+  plan:
+    name: Check version and release intent
     if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      release: ${{ steps.plan.outputs.release }}
+      version: ${{ steps.plan.outputs.version }}
+      mode: ${{ steps.plan.outputs.mode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - id: plan
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          REQUESTED_MODE: ${{ inputs.mode }}
+          AUTO_RELEASE: ${{ vars.CWS_AUTO_RELEASE }}
+        run: node scripts/release-plan.mjs
+
+  verify:
+    needs: plan
+    if: ${{ needs.plan.outputs.release == 'true' }}
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
     uses: ./.github/workflows/ci.yml
 
   publish:
     name: Upload or submit tested package
-    needs: verify
-    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: [plan, verify]
+    if: ${{ github.ref == 'refs/heads/main' && needs.plan.outputs.release == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: chrome-web-store
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -46,13 +82,23 @@ jobs:
           name: ${{ needs.verify.outputs.artifact-name }}
           path: release/
       # No npm install, browser, or dependency lifecycle scripts in this job.
+      - name: Authenticate to Google Cloud through GitHub OIDC
+        id: google_auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+          access_token_lifetime: 900s
+          create_credentials_file: false
+          export_environment_variables: false
       - name: Upload and optionally submit to review
         env:
-          RELEASE_VERSION: ${{ inputs.version }}
-          RELEASE_MODE: ${{ inputs.mode }}
+          RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+          RELEASE_MODE: ${{ needs.plan.outputs.mode }}
           CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
           CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
-          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          # Masked step-local handoff only; never export as a job/workflow output.
+          CWS_ACCESS_TOKEN: ${{ steps.google_auth.outputs.access_token }}
         run: node scripts/publish-store.mjs

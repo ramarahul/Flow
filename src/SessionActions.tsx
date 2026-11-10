@@ -134,6 +134,7 @@ export function SessionActions({ data, now, busy, send }: Props) {
             type="button"
             className="icon"
             aria-label="Close options"
+            title="Close options"
             onClick={() => setPanel(null)}
           >
             <X size={14} />

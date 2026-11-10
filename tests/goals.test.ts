@@ -50,6 +50,62 @@ const work = (data: Data, id: string | null, start: number, minutes: number) =>
   );
 
 describe("recurring task goals and durable interval attribution", () => {
+  it("deletes a task and goal while preserving historical time and import compatibility", () => {
+    let data = work(tasks(), "reading", base, 2);
+    const history = structuredClone(data.history);
+    data = reduce(data, { type: "deleteTask", taskId: "reading" }, base + 3 * minute);
+    assert.equal(
+      data.tasks.some((task) => task.id === "reading"),
+      false,
+    );
+    assert.equal(
+      data.goals.some((goal) => goal.taskId === "reading"),
+      false,
+    );
+    assert.equal(data.selectedTaskId, null);
+    assert.deepEqual(data.history, history);
+    assert.equal(taskLabel(data, "reading"), "Deleted task");
+    assert.equal(taskTotals(data, base + 3 * minute).get("reading"), 2 * minute);
+    assert.deepEqual(validateData(data).history, history);
+    assert.deepEqual(migrate(data, base + 3 * minute).history, history);
+  });
+  it("keeps Quick Focus available when every custom task has been deleted", () => {
+    let data = tasks();
+    data = reduce(data, { type: "archiveTask", taskId: "reading", archived: true }, base);
+    for (const taskId of ["reading", "coding"])
+      data = reduce(data, { type: "deleteTask", taskId }, base);
+    assert.deepEqual(data.tasks, []);
+    assert.deepEqual(data.goals, []);
+    assert.equal(taskLabel(data, data.selectedTaskId), "Quick Focus");
+    assert.throws(
+      () => reduce(data, { type: "deleteTask", taskId: null as unknown as string }, base),
+      /permanent default/,
+    );
+    assert.throws(
+      () => reduce(data, { type: "deleteTask", taskId: "missing" }, base),
+      /Task not found/,
+    );
+    data = reduce(data, { type: "start", minutes: 10 }, base);
+    assert.equal(data.timer.session!.taskId, null);
+  });
+  it("switches future time to Quick Focus when deleting the running task without restarting", () => {
+    let data = reduce(
+      select(tasks(), "reading"),
+      { type: "start", minutes: 10 },
+      base,
+      "running",
+    );
+    data = reduce(data, { type: "deleteTask", taskId: "reading" }, base + 2 * minute);
+    assert.equal(data.timer.session!.id, "running");
+    assert.equal(data.timer.session!.taskId, null);
+    assert.equal(remaining(data.timer, base + 2 * minute), 8 * minute);
+    assert.equal(data.timer.session!.segments[0].taskId, "reading");
+    data = reduce(data, { type: "finish" }, base + 4 * minute);
+    assert.equal(taskTotals(data, base + 4 * minute).get("reading"), 2 * minute);
+    assert.equal(taskTotals(data, base + 4 * minute).get(null), 2 * minute);
+    assert.equal(data.history[0].focusMs, 4 * minute);
+    validateData(data);
+  });
   it("repeats a task session without losing goal time and uses the initial duration after extensions", () => {
     let d = reduce(
       select(tasks(), "reading"),

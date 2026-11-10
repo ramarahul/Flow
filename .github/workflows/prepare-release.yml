@@ -1,0 +1,88 @@
+name: Prepare Flow release
+
+on:
+  workflow_dispatch:
+    inputs:
+      change:
+        description: Bug fix bumps the patch version; feature bumps the minor version
+        required: true
+        default: bug-fix
+        type: choice
+        options: [bug-fix, feature]
+      notes:
+        description: Optional short summary; leave blank to use existing Unreleased notes
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flow-release-preparation
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare version and release PR
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      # Only formatting tooling is needed; do not execute dependency lifecycle scripts.
+      - run: npm ci --ignore-scripts
+      - name: Prepare the next version
+        id: version
+        env:
+          RELEASE_KIND: ${{ inputs.change }}
+          RELEASE_NOTES: ${{ inputs.notes }}
+        run: |
+          case "$RELEASE_KIND" in
+            bug-fix) npm run release:prepare -- patch ;;
+            feature) npm run release:prepare -- minor ;;
+            *) echo "Choose bug-fix or feature" >&2; exit 1 ;;
+          esac
+      - name: Format release files
+        run: npx --no-install prettier --write package.json package-lock.json public/manifest.json CHANGELOG.md
+      - name: Create or update the release PR
+        id: pr
+        uses: peter-evans/create-pull-request@15733dbdfeedb4f7fdb73d13c6f5ac83b710fab8 # v8
+        with:
+          token: ${{ github.token }}
+          base: main
+          branch: release/v${{ steps.version.outputs.version }}
+          delete-branch: false
+          add-paths: |
+            package.json
+            package-lock.json
+            public/manifest.json
+            CHANGELOG.md
+          commit-message: "chore: prepare Flow ${{ steps.version.outputs.version }}"
+          title: Release Flow ${{ steps.version.outputs.version }}
+          body: |
+            Prepares the next Flow release: synchronized package/manifest versions and release notes.
+
+            Review these four files and merge after required checks pass. Publishing still requires
+            the existing chrome-web-store environment approval. This workflow does not publish.
+      - name: Start CI and show the release PR
+        if: ${{ steps.pr.outputs.pull-request-number != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_BRANCH: ${{ steps.pr.outputs.pull-request-branch }}
+          RELEASE_PR_URL: ${{ steps.pr.outputs.pull-request-url }}
+        run: |
+          printf '## Release prepared\n\n[Open the release PR](%s)\n\nMerge after CI passes, then approve publishing.\n' "$RELEASE_PR_URL" >> "$GITHUB_STEP_SUMMARY"
+          # Explicit dispatch works with GITHUB_TOKEN; do not depend on bot push/PR events.
+          gh workflow run ci.yml --repo "$GH_REPO" --ref "$RELEASE_BRANCH"

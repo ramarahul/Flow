@@ -16,6 +16,45 @@ import {
 const start = (now = 1000) =>
   reduce(defaults(), { type: "start", minutes: 25 }, now, "same");
 describe("continuous focus sessions", () => {
+  it("persists the liquid effect preference and validates older backups", () => {
+    assert.equal(defaults().settings.liquidEffect, true);
+    const data = reduce(
+      defaults(),
+      { type: "settings", settings: { liquidEffect: false } },
+      1000,
+    );
+    assert.equal(migrate(data, 2000).settings.liquidEffect, false);
+    assert.equal(
+      validateData(JSON.parse(JSON.stringify(data))).settings.liquidEffect,
+      false,
+    );
+    const legacy = structuredClone(data);
+    Reflect.deleteProperty(legacy.settings, "liquidEffect");
+    assert.equal(migrate(legacy, 2000).settings.liquidEffect, true);
+    assert.equal(validateData(legacy).settings.liquidEffect, true);
+    assert.throws(
+      () => validateSettings({ ...defaults().settings, liquidEffect: "false" }),
+      /Invalid settings/,
+    );
+  });
+  it("persists task visibility, defaults older data to visible, and rejects invalid values", () => {
+    assert.equal(defaults().settings.showTask, true);
+    const data = reduce(
+      defaults(),
+      { type: "settings", settings: { showTask: false } },
+      1000,
+    );
+    assert.equal(migrate(data, 2000).settings.showTask, false);
+    assert.equal(validateData(JSON.parse(JSON.stringify(data))).settings.showTask, false);
+    const legacy = structuredClone(data);
+    Reflect.deleteProperty(legacy.settings, "showTask");
+    assert.equal(migrate(legacy, 2000).settings.showTask, true);
+    assert.equal(validateData(legacy).settings.showTask, true);
+    assert.throws(
+      () => validateSettings({ ...defaults().settings, showTask: "false" }),
+      /Invalid settings/,
+    );
+  });
   it("restores a stopped completion window and saves once without adding focused time", () => {
     const end = 1000 + 25 * minute;
     let d = reduce(start(), { type: "completeTarget" }, end + 5000);

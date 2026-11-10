@@ -4,7 +4,8 @@
 
 Every PR targeting `main`, push to `main`, and merge-queue entry runs formatting,
 TypeScript checking, timer/background/overlay regression tests, release-tooling tests,
-and a high/critical dependency audit. It then builds and checks the extension's
+and a high/critical dependency audit. A parallel CodeQL job scans application and
+release-tooling JavaScript/TypeScript using the security-extended queries. CI then builds and checks the extension's
 version, permission allowlist, CSP, entry points, icons, and packaged files.
 
 Playwright installs the packaged extension into an isolated Chromium profile and
@@ -15,7 +16,12 @@ Chrome's optional-permission prompts, real website redirects and overlay renderi
 still require the [manual Chrome checklist](../docs/TESTING.md). Unit tests cover their logic.
 
 `PR gate` fails if any preceding stage fails or is skipped. There are no path filters.
-CI and release workflows have only `contents: read`; PRs receive no store secrets.
+Workflow defaults have only `contents: read`. Only the protected publishing job
+adds `id-token: write` for Google Workload Identity Federation; PRs cannot run it.
+PRs receive no publishing credentials. Only the CodeQL job receives `security-events: write` to upload
+findings and `actions: read` for analysis metadata. The reusable CI caller grants
+these scanning permissions to verification, not to the credential-bearing
+publishing job.
 Runners are pinned to Ubuntu 24.04 to match the locked Playwright browser tooling;
 review browser support before changing the runner OS.
 Actions are pinned to commit hashes; Dependabot proposes updates. No extension
@@ -26,6 +32,23 @@ permission was added for this pipeline.
 Workflow files alone cannot prevent merges. Push these files to GitHub and let CI
 run once, then configure server-side protection. Nothing in this checkout has yet
 changed GitHub repository settings.
+
+CodeQL uses advanced setup through this workflow. If GitHub's CodeQL default
+setup is already enabled, switch to advanced setup to avoid conflicting analyses.
+Code scanning must be available and enabled for the repository; public repositories
+are supported, while private repositories require an eligible GitHub Code Security
+plan. A setup or upload failure fails `PR gate` rather than skipping the scan.
+See [GitHub's CodeQL setup guide](https://docs.github.com/en/code-security/how-tos/find-and-fix-code-vulnerabilities/configure-code-scanning/configuring-advanced-setup-for-code-scanning).
+
+Successful analysis is not a clean security audit. Review findings under Security
+and quality → Code scanning. To block merges based on alert severity, configure
+GitHub's code-scanning merge protection separately; the workflow gate checks that
+analysis completed successfully.
+
+Enable private vulnerability reporting in repository Settings → Advanced Security
+so [SECURITY.md](../SECURITY.md) provides a usable private reporting form. Adding
+the policy file does not enable that GitHub setting. No server settings are changed
+automatically by adding these files.
 
 1. Use Node 24 (`.node-version`) and `npm ci`. Preview with
    `npm run configure:github`.
@@ -57,50 +80,121 @@ and [deployment environments](https://docs.github.com/en/actions/how-tos/deploy/
 
 ## One-time store setup
 
-1. Register the developer account, enable two-step verification, create the listing,
-   and complete store listing/privacy details in the Developer Dashboard. Prepare
-   actual screenshots, artwork, permission explanations, and a public privacy policy.
-   The initial listing and account setup require dashboard work.
-2. Follow the [official Chrome Web Store API guide](https://developer.chrome.com/docs/webstore/using-api/)
-   to enable API access and obtain an OAuth client ID, client secret, and refresh
-   token authorized for `https://www.googleapis.com/auth/chromewebstore` with the
-   account that can manage this item. Use durable production OAuth configuration;
-   a testing-mode consent setup can cause refresh tokens to expire.
-3. In GitHub Settings → Environments → `chrome-web-store`, add:
+Flow now uses GitHub OIDC with Google Cloud Workload Identity Federation (WIF)
+and service account impersonation. It does not exchange OAuth refresh tokens,
+read legacy `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN` secrets,
+or use service account JSON keys.
 
-   | Kind     | Name                | Value                                   |
-   | -------- | ------------------- | --------------------------------------- |
-   | Secret   | `CWS_CLIENT_ID`     | OAuth client ID                         |
-   | Secret   | `CWS_CLIENT_SECRET` | OAuth client secret                     |
-   | Secret   | `CWS_REFRESH_TOKEN` | Authorized refresh token                |
-   | Variable | `CWS_PUBLISHER_ID`  | Publisher ID from the developer account |
-   | Variable | `CWS_EXTENSION_ID`  | Existing 32-character extension ID      |
+1. Enable the Chrome Web Store API and IAM Service Account Credentials API. Verify
+   the Security Token Service API needed by the existing pool is available.
+2. Confirm the intended service account is authorized in Chrome Web Store
+   Publisher Settings for the existing publisher. Cloud IAM roles alone do not
+   grant Chrome Web Store access. See Google's [service account guide](https://developer.chrome.com/docs/webstore/service-accounts).
+3. Confirm the existing `github-actions` pool / `github` provider and the service
+   account's `roles/iam.workloadIdentityUser` binding enforce the boundaries in
+   [the OIDC trust review](../docs/PUBLISHING_OIDC.md). Owner-only provider trust
+   plus a repository binding does not also restrict environment or workflow.
+4. In GitHub Settings ? Environments ? **chrome-web-store**, confirm required
+   reviewer approval, main-only deployment branches, and no administrator bypass.
+   Keep the existing environment name and reviewer settings.
+5. Set these environment-scoped **variables** (no new secrets):
 
-Keep these at environment scope, not repository scope. Credentials are supplied
-only to the final upload step after approval; that job installs no npm dependencies.
-Do not paste credentials in issues, logs, workflow inputs, or PRs. Revoke and rotate
-them in Google/GitHub if exposed.
+   | Name                             | Value                                                                                            |
+   | -------------------------------- | ------------------------------------------------------------------------------------------------ |
+   | `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-actions/providers/github` |
+   | `GCP_SERVICE_ACCOUNT`            | Authorized service account email                                                                 |
+   | `CWS_PUBLISHER_ID`               | Existing publisher ID                                                                            |
+   | `CWS_EXTENSION_ID`               | Existing 32-character extension ID                                                               |
+
+The pinned `google-github-actions/auth` action runs after approval and artifact
+download, immediately before the publisher. It impersonates that service account
+and requests a 900-second access token scoped only to
+`https://www.googleapis.com/auth/chromewebstore`. It writes no credential file and
+exports no general Google credential environment. No dependency installation or
+build runs in this job.
+
+The upstream auth action necessarily creates **masked internal step outputs**;
+the access token is handed only to the next step's `CWS_ACCESS_TOKEN` environment.
+There are no token-bearing job/workflow outputs, artifacts, or explicit logs, and
+no token is written to `GITHUB_ENV`. If ?no outputs? means even the auth action's
+internal outputs, that is incompatible with this action's implementation; this
+workflow does not claim otherwise. Never print action outputs or enable verbose
+HTTP/token debugging. `.gitignore` excludes `gha-creds-*.json` as defense in depth.
+
+Legacy OAuth secrets are deliberately left untouched in GitHub. After a successful
+OIDC `check` run and a separately approved real draft upload/submission confirm
+that no other workflow uses them, delete those three legacy secrets manually.
+Revoke the old refresh-token authorization if it is not used by any other app.
+
+## Verify OIDC without changing the Store
+
+After reviewing and merging this migration through the normal protected PR process:
+
+1. Keep `CWS_AUTO_RELEASE` unset or `false` until you intend to use the existing
+   opt-in automatic release path. This migration does not enable it or bump versions.
+2. Run **Actions ? Chrome Web Store release ? Run workflow**, choose **main**,
+   its exact current version, and mode **check**. Approve the same protected
+   environment deployment after CI passes.
+3. The publisher verifies artifact commit/version/checksum and issues only a V2
+   `GET ...:fetchStatus`. It never uploads a ZIP or submits/publishes an item in
+   check mode. An already-published version is allowed because this is read-only.
+4. Review the job outcome and Cloud audit logs without logging tokens. A successful
+   check confirms token minting and item-status access, not that an upload or
+   submission will be accepted. Validate those only in a later intentional release.
+
+No live authentication, Store status call, upload, publish, deployment, or release
+was executed as part of the local migration validation; tests use fake tokens and
+mocked HTTP requests.
 
 ## Release a version
 
-1. Update `package.json`, `package-lock.json` (use `npm install --package-lock-only`),
-   and `public/manifest.json` to the same new version. Chrome updates require a higher
-   manifest version. Open a PR, wait for `PR gate`, then merge.
-2. Complete the [manual Chrome checklist](../docs/TESTING.md) using the CI package. CI artifacts
-   contain `flow-VERSION.zip`, its SHA-256 file, and `release.json`. The manifest is
-   at the ZIP root. Test with the actual Chrome/browser/OS versions you support.
-3. In Actions → **Chrome Web Store release** → Run workflow, choose **main**, enter
-   the exact version, and choose `upload` (default) for a draft or `submit` to upload
-   and request store review. Review and approve the environment deployment.
-4. The workflow reruns all CI stages, then uploads the exact checksum-verified
-   package tested by Chromium in that run. It verifies the commit and version,
-   waits for asynchronous upload, and fails on errors before publication.
-   `submit` requests normal review with warning checks enabled; it does not bypass
-   review or guarantee immediate publication. Monitor the Developer Dashboard.
+The easiest path is **Actions → Prepare Flow release → Run workflow → main**.
+Choose **bug-fix** or **feature**, optionally add a short summary, and follow the
+generated release PR. Version synchronization, formatting, and CI dispatch are
+automatic. Merge after checks pass, then approve the existing publishing job
+if `CWS_AUTO_RELEASE=true` is enabled. Otherwise use the manual release path below.
 
-There is no automatic publication on PRs, pushes, or dependency updates, and no
-GitHub release or tag is created. Do not rerun an upload for an already-used store
-version; inspect the dashboard first and bump the version for the next update.
+Enable **Settings → Actions → General → Workflow permissions → Allow GitHub
+Actions to create and approve pull requests** once. Preparation creates a PR but
+does not approve/merge it or publish anything. Its main-only job has GitHub
+contents/PR write permissions plus Actions write for explicit CI dispatch, and
+has no OIDC permission or publishing credentials. No extra secrets are needed.
+See [the recommended GitHub-button flow](../docs/RELEASES.md#recommended-use-the-github-button).
+
+Start with [the release guide](../docs/RELEASES.md), which explains when to release,
+which version to choose, and the preparation command. Do not upload another build
+over the first submission while it is under review.
+
+For opt-in automation, create the **repository variable** `CWS_AUTO_RELEASE` with
+the exact value `true` under Settings → Secrets and variables → Actions → Variables.
+Only enable it after the first release is published and the main-only protected
+environment, required reviewers, API credentials, and CodeQL setup are working.
+This variable contains no credential. Keeping it unset or `false` disables
+automatic submissions without disabling manual releases.
+
+When a higher version is merged to `main`, the release workflow compares it with
+the previous main commit, checks all version files and changelog notes, reruns the
+full CI workflow, and waits for the `chrome-web-store` environment approval. It
+then uploads the exact tested package and submits it for normal store review.
+Ordinary feature merges and dependency updates with no Flow version change do not
+submit anything. Initial branch pushes do not automatically publish.
+
+For a manual release, use Actions → **Chrome Web Store release** → Run workflow,
+choose **main**, enter its exact version, and select `upload` for a draft or `submit`
+for review, or `check` for read-only access verification. This runs the same validation and protected publishing job regardless
+of the automation variable. A draft is not a publication. Use the dashboard to
+submit an already-uploaded draft rather than uploading the same version again.
+
+The publisher checks store status before upload and refuses an active review,
+staged submission, unknown submission state, or a version that is not higher than
+the published channels. It does not cancel reviews, override approvals, retry
+uploads automatically, or bypass Google's review. Check the Developer Dashboard
+after a failed or interrupted release before retrying.
+
+No tags or GitHub Releases are created. Automatic store submission happens only
+after an intentional version increase on main with automation enabled and all
+configured checks and approvals satisfied. Keep the tested artifact and workflow
+commit as the release record. See [Google's update process](https://developer.chrome.com/docs/webstore/update).
 
 ## Local verification
 
@@ -122,5 +216,5 @@ npm run test:e2e
 Linux browser dependencies can be installed with
 `npx playwright install --with-deps chromium`. Reports and failure traces are in
 `playwright-report/` and `test-results/` (also uploaded by CI). Packages and reports
-are ignored by Git. Publishing tests use fake credentials and mocked HTTP requests;
+are ignored by Git. Publishing tests use fake temporary access tokens and mocked HTTP requests;
 they never contact the live store.

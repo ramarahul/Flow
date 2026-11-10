@@ -10,10 +10,17 @@ focus statistics.
 - Choose a task or use Quick Focus. Set recurring daily goals and track time by task.
 - Block distracting domains, including already-open websites, after granting
   optional website access.
-- Browse 7-day and 30-day graphs, daily and weekly task totals, and saved sessions.
+- Browse calendar week, month, and year graphs with matching task totals and saved
+  session history. Day graphs show hours in local time. Weeks start on Monday; yearly bars represent months.
+- Expand **All sessions** in Stats to browse saved records, five per page. Collapse
+  it again to keep the overview compact.
 - Choose light, dark, or system appearance. Hide the home duration selector for a
   simpler, single-button start screen.
 - Export and import local backups.
+
+In Settings, turn off **Show task on home** to hide the task selector and goal
+progress. Your selected task continues tracking time; tasks remain accessible
+through **Today's goals** in the header.
 
 ## How sessions work
 
@@ -28,6 +35,13 @@ screen or overlay. Partial focus time is saved, and the session cannot be resume
 
 Changing tasks during a session requires confirmation. Previously recorded time
 stays with its original task, while future focus time goes to the new selection.
+
+Use the **pencil icon** beside a custom task (hover for **Edit task**) to change its name or goal, archive it, or
+delete it. Use **Archived tasks** above the list to find tasks you can restore.
+Renaming preserves recorded time. Deletion requires
+confirmation and removes its goal; past focus remains in statistics as **Deleted
+task**. If it is the running task, the timer continues as **Quick Focus**. Quick
+Focus is the permanent default and cannot be deleted.
 
 Notifications and their action buttons depend on Chrome and operating-system
 settings. Deadline recovery runs when Chrome resumes after being closed or asleep.
@@ -64,9 +78,15 @@ rebuild to pick up updated background code or permissions.
 
 - [Testing and release checklist](docs/TESTING.md)
 - [GitHub Actions and publishing setup](.github/RELEASING.md)
+- [Versioning and release guide](docs/RELEASES.md)
+- [Changelog](CHANGELOG.md)
+- [Visual design guide](docs/DESIGN.md)
 
 ## Support
 
 Report bugs or suggest improvements through [GitHub issues](https://github.com/ramarahul/Flow/issues).
 Include your Chrome version and steps to reproduce. Avoid posting private task
 names, browsing details, or exported backups in public issues.
+
+For vulnerabilities, follow the [security reporting policy](SECURITY.md) instead
+of opening a public bug report.

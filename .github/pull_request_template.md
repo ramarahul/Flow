@@ -6,6 +6,7 @@ Validation:
 - [ ] Add meaningful regression coverage for changed behavior.
 - [ ] Explain any manifest permission, host-access, dependency, or data-schema change.
 - [ ] Update documentation and assess backward compatibility.
-- [ ] For a store release, bump package.json, package-lock.json, and manifest.json together.
+- [ ] For UI changes, follow `docs/DESIGN.md` and review the 300px layout, selection states, and both themes.
+- [ ] For a store release, add changelog notes and use `npm run release:prepare -- patch|minor|major` to synchronize versions. Verify the prior store review is complete.
 
 Screenshots or manual Chrome checks, when relevant:

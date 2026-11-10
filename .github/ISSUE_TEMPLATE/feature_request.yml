@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest an improvement to Flow.
+body:
+  - type: markdown
+    attributes:
+      value: Suggestions are public. Avoid private task names, browsing details, or exported data.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation and what is difficult today.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested behavior
+      description: Explain how you would like Flow to work.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
