@@ -16,9 +16,7 @@ export async function publishStore({
   const required = [
     "CWS_PUBLISHER_ID",
     "CWS_EXTENSION_ID",
-    "CWS_CLIENT_ID",
-    "CWS_CLIENT_SECRET",
-    "CWS_REFRESH_TOKEN",
+    "CWS_ACCESS_TOKEN",
     "RELEASE_VERSION",
     "RELEASE_MODE",
   ];
@@ -27,7 +25,11 @@ export async function publishStore({
   assert.equal(env.GITHUB_REF, "refs/heads/main", "Store releases must run from main");
   assert.match(env.CWS_PUBLISHER_ID, /^[\w-]+$/);
   assert.match(env.CWS_EXTENSION_ID, /^[a-p]{32}$/);
-  assert(["upload", "submit"].includes(env.RELEASE_MODE), "Choose upload or submit");
+  assert(
+    ["check", "upload", "submit"].includes(env.RELEASE_MODE),
+    "Choose check, upload or submit",
+  );
+  assert(!/\s/.test(env.CWS_ACCESS_TOKEN), "Invalid temporary access token");
   const meta = JSON.parse(await read("release/release.json", "utf8"));
   assert.equal(
     meta.version,
@@ -49,6 +51,7 @@ export async function publishStore({
   async function json(url, options) {
     const response = await fetcher(url, {
       ...options,
+      redirect: "error",
       signal: AbortSignal.timeout(120_000),
     });
     if (!response.ok)
@@ -57,23 +60,15 @@ export async function publishStore({
       );
     return response.json();
   }
-  const token = await json("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: env.CWS_CLIENT_ID,
-      client_secret: env.CWS_CLIENT_SECRET,
-      refresh_token: env.CWS_REFRESH_TOKEN,
-      grant_type: "refresh_token",
-    }),
-  });
-  assert(
-    typeof token.access_token === "string" && token.access_token,
-    "OAuth did not return an access token",
-  );
-  const headers = { Authorization: `Bearer ${token.access_token}` };
+  const headers = { Authorization: `Bearer ${env.CWS_ACCESS_TOKEN}` };
   const name = `publishers/${env.CWS_PUBLISHER_ID}/items/${env.CWS_EXTENSION_ID}`;
   const current = await json(`${api}/v2/${name}:fetchStatus`, { headers });
+  if (env.RELEASE_MODE === "check") {
+    log(
+      "Verified Chrome Web Store V2 access and tested artifact. No upload or publish request was sent.",
+    );
+    return;
+  }
   const submitted = current.submittedItemRevisionStatus?.state;
   assert(
     !submitted ||
@@ -101,7 +96,7 @@ export async function publishStore({
     state = status.lastAsyncUploadState;
   }
   assert(
-    ["SUCCEEDED", "SUCCESS"].includes(state),
+    state === "SUCCEEDED",
     "Upload failed or timed out; no publish request was sent",
   );
   if (upload.crxVersion)

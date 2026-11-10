@@ -7,10 +7,10 @@ commit. Fixes to broken functionality or security deserve a prompt patch release
 Feature work can accumulate on branches until it is ready. Documentation, CI, and
 repository-only changes normally do not require a new extension package.
 
-The first `1.0.0` submission is under review. Keep its ZIP and commit unchanged as
-the submitted release record. Continue development on branches. Wait for the
-review outcome before submitting the next build; if a critical issue requires
-replacing the pending submission, use the Developer Dashboard deliberately.
+The first store release is published. Keep its matching ZIP and commit as the
+release record. Continue development on branches. For any later update already
+under review, wait for the outcome before submitting another package; use the
+Developer Dashboard deliberately if a pending submission must be replaced.
 
 Google reviews updates too. A successful upload or GitHub Actions run does not
 mean the update is approved or publicly available. Existing users continue using
@@ -51,8 +51,9 @@ also supported: `npm run release:prepare -- 1.2.3`.
 ## Enable automation once
 
 After the first store release is published, follow [.github/RELEASING.md](../.github/RELEASING.md)
-to configure the protected `chrome-web-store` environment, its three OAuth secrets,
-and its publisher/extension ID variables. Enable the repository's CodeQL advanced
+to configure the protected `chrome-web-store` environment, its WIF provider and
+service account variables, and publisher/extension ID variables. No new secrets
+are needed; see [the cloud trust review](PUBLISHING_OIDC.md). Enable the repository's CodeQL advanced
 setup as described there.
 
 Set the repository variable **`CWS_AUTO_RELEASE=true`**. There is no automatic
@@ -69,7 +70,9 @@ step; merging alone does not bypass it.
 
 You can keep automation off and use **Actions → Chrome Web Store release → Run
 workflow** on main. Enter the exact prepared version and choose `upload` for a draft
-or `submit` for review. Both paths use full CI and the protected environment.
+or `submit` for review. Mode `check` validates OIDC and reads item status without
+uploading or publishing; use it first after the authentication migration. All modes
+use full CI and the protected environment.
 
 - **CI fails:** fix the failure through a PR. No package should be uploaded.
 - **Store review is already active or staged:** wait, or resolve it in the dashboard.

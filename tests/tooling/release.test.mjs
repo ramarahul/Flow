@@ -35,6 +35,7 @@ it("allows a manually requested draft without enabling automatic releases", () =
     mode: "upload",
   };
   assert.equal(releasePlan(base).mode, "upload");
+  assert.equal(releasePlan({ ...base, mode: "check" }).mode, "check");
   assert.throws(() => releasePlan({ ...base, requested: "1.0.1" }));
   assert.throws(() => releasePlan({ ...base, mode: "unknown" }));
 });

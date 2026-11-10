@@ -16,10 +16,12 @@ Chrome's optional-permission prompts, real website redirects and overlay renderi
 still require the [manual Chrome checklist](../docs/TESTING.md). Unit tests cover their logic.
 
 `PR gate` fails if any preceding stage fails or is skipped. There are no path filters.
-Workflow defaults and the publishing job have only `contents: read`; PRs receive
-no store secrets. Only the CodeQL job receives `security-events: write` to upload
+Workflow defaults have only `contents: read`. Only the protected publishing job
+adds `id-token: write` for Google Workload Identity Federation; PRs cannot run it.
+PRs receive no publishing credentials. Only the CodeQL job receives `security-events: write` to upload
 findings and `actions: read` for analysis metadata. The reusable CI caller grants
-these permissions to verification, not to the credential-bearing publishing job.
+these scanning permissions to verification, not to the credential-bearing
+publishing job.
 Runners are pinned to Ubuntu 24.04 to match the locked Playwright browser tooling;
 review browser support before changing the runner OS.
 Actions are pinned to commit hashes; Dependabot proposes updates. No extension
@@ -78,29 +80,71 @@ and [deployment environments](https://docs.github.com/en/actions/how-tos/deploy/
 
 ## One-time store setup
 
-1. Register the developer account, enable two-step verification, create the listing,
-   and complete store listing/privacy details in the Developer Dashboard. Prepare
-   actual screenshots, artwork, permission explanations, and a public privacy policy.
-   The initial listing and account setup require dashboard work.
-2. Follow the [official Chrome Web Store API guide](https://developer.chrome.com/docs/webstore/using-api/)
-   to enable API access and obtain an OAuth client ID, client secret, and refresh
-   token authorized for `https://www.googleapis.com/auth/chromewebstore` with the
-   account that can manage this item. Use durable production OAuth configuration;
-   a testing-mode consent setup can cause refresh tokens to expire.
-3. In GitHub Settings → Environments → `chrome-web-store`, add:
+Flow now uses GitHub OIDC with Google Cloud Workload Identity Federation (WIF)
+and service account impersonation. It does not exchange OAuth refresh tokens,
+read legacy `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN` secrets,
+or use service account JSON keys.
 
-   | Kind     | Name                | Value                                   |
-   | -------- | ------------------- | --------------------------------------- |
-   | Secret   | `CWS_CLIENT_ID`     | OAuth client ID                         |
-   | Secret   | `CWS_CLIENT_SECRET` | OAuth client secret                     |
-   | Secret   | `CWS_REFRESH_TOKEN` | Authorized refresh token                |
-   | Variable | `CWS_PUBLISHER_ID`  | Publisher ID from the developer account |
-   | Variable | `CWS_EXTENSION_ID`  | Existing 32-character extension ID      |
+1. Enable the Chrome Web Store API and IAM Service Account Credentials API. Verify
+   the Security Token Service API needed by the existing pool is available.
+2. Confirm the intended service account is authorized in Chrome Web Store
+   Publisher Settings for the existing publisher. Cloud IAM roles alone do not
+   grant Chrome Web Store access. See Google's [service account guide](https://developer.chrome.com/docs/webstore/service-accounts).
+3. Confirm the existing `github-actions` pool / `github` provider and the service
+   account's `roles/iam.workloadIdentityUser` binding enforce the boundaries in
+   [the OIDC trust review](../docs/PUBLISHING_OIDC.md). Owner-only provider trust
+   plus a repository binding does not also restrict environment or workflow.
+4. In GitHub Settings ? Environments ? **chrome-web-store**, confirm required
+   reviewer approval, main-only deployment branches, and no administrator bypass.
+   Keep the existing environment name and reviewer settings.
+5. Set these environment-scoped **variables** (no new secrets):
 
-Keep these at environment scope, not repository scope. Credentials are supplied
-only to the final upload step after approval; that job installs no npm dependencies.
-Do not paste credentials in issues, logs, workflow inputs, or PRs. Revoke and rotate
-them in Google/GitHub if exposed.
+   | Name                             | Value                                                                                            |
+   | -------------------------------- | ------------------------------------------------------------------------------------------------ |
+   | `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-actions/providers/github` |
+   | `GCP_SERVICE_ACCOUNT`            | Authorized service account email                                                                 |
+   | `CWS_PUBLISHER_ID`               | Existing publisher ID                                                                            |
+   | `CWS_EXTENSION_ID`               | Existing 32-character extension ID                                                               |
+
+The pinned `google-github-actions/auth` action runs after approval and artifact
+download, immediately before the publisher. It impersonates that service account
+and requests a 900-second access token scoped only to
+`https://www.googleapis.com/auth/chromewebstore`. It writes no credential file and
+exports no general Google credential environment. No dependency installation or
+build runs in this job.
+
+The upstream auth action necessarily creates **masked internal step outputs**;
+the access token is handed only to the next step's `CWS_ACCESS_TOKEN` environment.
+There are no token-bearing job/workflow outputs, artifacts, or explicit logs, and
+no token is written to `GITHUB_ENV`. If ?no outputs? means even the auth action's
+internal outputs, that is incompatible with this action's implementation; this
+workflow does not claim otherwise. Never print action outputs or enable verbose
+HTTP/token debugging. `.gitignore` excludes `gha-creds-*.json` as defense in depth.
+
+Legacy OAuth secrets are deliberately left untouched in GitHub. After a successful
+OIDC `check` run and a separately approved real draft upload/submission confirm
+that no other workflow uses them, delete those three legacy secrets manually.
+Revoke the old refresh-token authorization if it is not used by any other app.
+
+## Verify OIDC without changing the Store
+
+After reviewing and merging this migration through the normal protected PR process:
+
+1. Keep `CWS_AUTO_RELEASE` unset or `false` until you intend to use the existing
+   opt-in automatic release path. This migration does not enable it or bump versions.
+2. Run **Actions ? Chrome Web Store release ? Run workflow**, choose **main**,
+   its exact current version, and mode **check**. Approve the same protected
+   environment deployment after CI passes.
+3. The publisher verifies artifact commit/version/checksum and issues only a V2
+   `GET ...:fetchStatus`. It never uploads a ZIP or submits/publishes an item in
+   check mode. An already-published version is allowed because this is read-only.
+4. Review the job outcome and Cloud audit logs without logging tokens. A successful
+   check confirms token minting and item-status access, not that an upload or
+   submission will be accepted. Validate those only in a later intentional release.
+
+No live authentication, Store status call, upload, publish, deployment, or release
+was executed as part of the local migration validation; tests use fake tokens and
+mocked HTTP requests.
 
 ## Release a version
 
@@ -124,7 +168,7 @@ submit anything. Initial branch pushes do not automatically publish.
 
 For a manual release, use Actions → **Chrome Web Store release** → Run workflow,
 choose **main**, enter its exact version, and select `upload` for a draft or `submit`
-for review. This runs the same validation and protected publishing job regardless
+for review, or `check` for read-only access verification. This runs the same validation and protected publishing job regardless
 of the automation variable. A draft is not a publication. Use the dashboard to
 submit an already-uploaded draft rather than uploading the same version again.
 
@@ -159,5 +203,5 @@ npm run test:e2e
 Linux browser dependencies can be installed with
 `npx playwright install --with-deps chromium`. Reports and failure traces are in
 `playwright-report/` and `test-results/` (also uploaded by CI). Packages and reports
-are ignored by Git. Publishing tests use fake credentials and mocked HTTP requests;
+are ignored by Git. Publishing tests use fake temporary access tokens and mocked HTTP requests;
 they never contact the live store.

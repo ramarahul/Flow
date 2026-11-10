@@ -70,6 +70,9 @@ web_modules/
 .env.*
 !.env.example
 
+# Defense in depth if Google auth credential-file generation is ever enabled.
+gha-creds-*.json
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache

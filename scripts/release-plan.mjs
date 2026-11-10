@@ -18,7 +18,10 @@ export function releasePlan({
   versionParts(current);
   if (event === "workflow_dispatch") {
     assert.equal(requested, current, "Requested version must match main");
-    assert(["upload", "submit"].includes(mode), "Choose upload or submit");
+    assert(
+      ["check", "upload", "submit"].includes(mode),
+      "Choose check, upload or submit",
+    );
     return { release: true, version: current, mode };
   }
   assert.equal(event, "push", "Unsupported release event");
