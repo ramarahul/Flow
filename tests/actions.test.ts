@@ -35,10 +35,10 @@ it("switches from countdown to total focus time counting upward at the target", 
   const data = reduce(defaults(), { type: "start", minutes: 10 }, 1000);
   const read = (now: number) =>
     renderToStaticMarkup(createElement(TimerReadout, { timer: data.timer, now }));
-  assert.match(read(1000 + 9 * 60000), /FOCUS REMAINING/);
+  assert.match(read(1000 + 9 * 60000), /IN FLOW/);
   assert.match(read(1000 + 9 * 60000), /01:00/);
   const reached = read(1000 + 10 * 60000);
-  assert.match(reached, /TIME FOCUSED/);
+  assert.match(reached, /FOCUS COMPLETE/);
   assert.match(reached, /10:00/);
   const later = read(1000 + 12 * 60000 + 34000);
   assert.match(later, /12:34/);
@@ -52,7 +52,7 @@ it("keeps the countdown compact without adding panels or controls", () => {
   const html = renderToStaticMarkup(
     createElement(TimerReadout, { timer: data.timer, now: 1000 + 150000 }),
   );
-  assert.match(html, /FOCUS REMAINING/);
+  assert.match(html, /IN FLOW/);
   assert.match(html, /07:30/);
   assert.match(html, /02:30/);
   assert.doesNotMatch(html, /focus-countdown|focus-dial|<svg/);
@@ -84,10 +84,8 @@ it("shows factual statistics with session history collapsed by default", () => {
   data = reduce(data, { type: "finish" }, now - 9 * 60000);
   data = reduce(data, { type: "start", minutes: 10 }, now - 5 * 60000, "partial");
   data = reduce(data, { type: "pause" }, now - 5 * 60000 + 30000);
-  const html = renderToStaticMarkup(
-    createElement(StatsView, { data, now, onBack: () => {} }),
-  );
-  assert.match(html, /Back to timer/);
+  const html = renderToStaticMarkup(createElement(StatsView, { data, now }));
+  assert.doesNotMatch(html, /Back to timer|back-home/);
   assert.match(html, /Focused today/);
   assert.match(html, /This week/);
   assert.match(html, /All-time sessions<\/span><strong>1<\/strong>/);
@@ -118,7 +116,7 @@ it("renders quiet daily goal completion with uncapped actual time and a capped i
   assert.equal(data.timer.mode, "focus");
   assert.equal(data.history.length, 0);
 });
-it("provides Quick Focus and task-management access in a separate selection screen", () => {
+it("provides General and task-management access in a separate selection screen", () => {
   const data = reduce(
     defaults(),
     {
@@ -133,23 +131,22 @@ it("provides Quick Focus and task-management access in a separate selection scre
     createElement(TaskViews, {
       data,
       now: +new Date(2026, 10, 7, 12),
-      mode: "tasks",
       send: async () => undefined,
       onBack: () => {},
     }),
   );
-  assert.match(html, /Quick Focus/);
+  assert.match(html, /General/);
   assert.match(html, /Reading/);
-  assert.match(html, /New task/);
+  assert.match(html, /Add task/);
   assert.match(html, /Edit task: Reading/);
   assert.doesNotMatch(html, /task-management|task-filters/);
   assert.doesNotMatch(html, />Delete</);
   assert.doesNotMatch(html, /Manage tasks/);
   assert.match(html, /Not scheduled today/);
-  assert(html.indexOf("New task") < html.indexOf("Quick Focus"));
+  assert(html.indexOf("Add task") < html.indexOf("default-task"));
 });
 
-it("shows the selected task even when its goal is disabled in the goals view", () => {
+it("shows the selected task even when its goal is disabled in the tasks view", () => {
   const data = reduce(
     defaults(),
     {
@@ -165,12 +162,11 @@ it("shows the selected task even when its goal is disabled in the goals view", (
     createElement(TaskViews, {
       data,
       now: 1000,
-      mode: "goals",
       send: async () => undefined,
       onBack: () => {},
     }),
   );
   assert.match(html, /aria-pressed="true"[^>]*>[\s\S]*?Reading/);
-  assert.match(html, /Quick Focus/);
-  assert(html.indexOf("New task") < html.indexOf("Quick Focus"));
+  assert.match(html, /General/);
+  assert(html.indexOf("Add task") < html.indexOf("default-task"));
 });

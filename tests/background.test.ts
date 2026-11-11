@@ -518,7 +518,7 @@ describe("background orchestration with mocked Chrome APIs", () => {
     assert.equal(stored.timer.mode, "idle");
     assert.equal(stored.history.length, 1);
     assert.equal(stored.history[0].breakMs, 60000);
-    assert.match(latestNotice!.options.title, /break is complete/);
+    assert.match(latestNotice!.options.title, /Break complete/);
     const notices = notifications;
     await send({ type: "tick" });
     assert.equal(notifications, notices);

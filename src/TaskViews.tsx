@@ -74,13 +74,11 @@ function GoalProgress({ progress }: { progress: ReturnType<typeof taskProgress> 
 export function TaskViews({
   data,
   now,
-  mode,
   send,
   onBack,
 }: {
   data: Data;
   now: number;
-  mode: "tasks" | "goals";
   send: Send;
   onBack: () => void;
 }) {
@@ -121,20 +119,11 @@ export function TaskViews({
   const visible = data.tasks.filter((task) => task.archived === showArchived);
   return (
     <section className="subview task-view">
-      <button className="back-home" onClick={onBack}>
-        <ArrowLeft size={20} /> Back to timer
-      </button>
-      <h1>
-        {showArchived
-          ? "Archived tasks"
-          : mode === "tasks"
-            ? "Choose your focus"
-            : "Today's goals"}
-      </h1>
+      {showArchived && <h2>Archived tasks</h2>}
       <p className="subtitle">
         {showArchived
           ? "Restore a task to focus on it again."
-          : "Choose a task. Use the pencil to edit it."}
+          : "Choose where your time goes."}
       </p>
       {pending && (
         <div className="switch-confirm" role="alert">
@@ -161,7 +150,7 @@ export function TaskViews({
       )}
       <div className="task-toolbar">
         <button className="secondary" disabled={working} onClick={() => setEditor("new")}>
-          <Plus size={15} /> New task
+          <Plus size={15} /> Add task
         </button>
         <button
           className="task-archive-link"
@@ -178,8 +167,8 @@ export function TaskViews({
         onClick={() => void choose(null)}
       >
         <span>
-          <strong>Quick Focus</strong>
-          <small>{focusDuration(totals.get(null) ?? 0)} today · Permanent default</small>
+          <strong>General</strong>
+          <small>{focusDuration(totals.get(null) ?? 0)} today</small>
         </span>
         {selected === null && <Check size={16} />}
       </button>
@@ -198,9 +187,7 @@ export function TaskViews({
                   <strong>{taskLabel(data, task.id)}</strong>
                   <small>
                     {focusDuration(progress.ms)}
-                    {progress.goal
-                      ? ` / ${focusDuration(progress.target)}`
-                      : " today · Goal off"}
+                    {progress.goal ? ` / ${focusDuration(progress.target)}` : " today"}
                   </small>
                 </span>
                 {selected === task.id && <Check size={16} />}
@@ -222,12 +209,8 @@ export function TaskViews({
           </div>
         );
       })}
-      {!visible.length && (
-        <p className="history-empty">
-          {showArchived
-            ? "No archived tasks."
-            : "Quick Focus is ready. Add a task when you want to track something specific."}
-        </p>
+      {!visible.length && showArchived && (
+        <p className="history-empty">No archived tasks.</p>
       )}
     </section>
   );
@@ -256,8 +239,10 @@ function TaskEditor({
       <button className="back-home" disabled={saving} onClick={onBack}>
         <ArrowLeft size={20} /> Back to tasks
       </button>
-      <h1>{task ? "Edit task" : "A new focus"}</h1>
-      <p className="subtitle">Your session length and daily goal stay separate.</p>
+      <h2>{task ? "Edit task" : "Add task"}</h2>
+      <p className="subtitle">
+        Choose what to work on and how much time to give it each day.
+      </p>
       {task && (
         <div className="task-editor-actions" role="group" aria-label="Task actions">
           <button
@@ -301,8 +286,7 @@ function TaskEditor({
           </p>
           {data.timer.session?.taskId === task.id && (
             <p>
-              Your current session will continue as Quick Focus without restarting the
-              timer.
+              Your current session will continue as General without restarting the timer.
             </p>
           )}
           <div>
@@ -370,7 +354,7 @@ function TaskEditor({
           />
         </label>
         <label className="setting">
-          Daily goal enabled
+          Set a daily goal
           <input
             type="checkbox"
             checked={enabled}
@@ -378,7 +362,7 @@ function TaskEditor({
           />
         </label>
         <label>
-          Daily target, in minutes
+          Daily goal in minutes
           <input
             type="number"
             min="1"
@@ -401,7 +385,7 @@ function TaskEditor({
           ))}
         </div>
         <fieldset>
-          <legend>Repeat</legend>
+          <legend>Goal days</legend>
           <label className="repeat-all">
             <input
               type="checkbox"

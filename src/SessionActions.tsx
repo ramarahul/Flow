@@ -38,7 +38,7 @@ export function SessionActions({ data, now, busy, send }: Props) {
           Take a break
         </button>
         <p className="action-explanation">
-          Returning home automatically. Your focused time has stopped.
+          Focus time has stopped. Flow returns home after 30 seconds unless you choose.
         </p>
       </section>
     );
@@ -88,14 +88,14 @@ export function SessionActions({ data, now, busy, send }: Props) {
                 aria-expanded={panel === "break"}
                 onClick={() => open("break")}
               >
-                Choose a different break length
+                Change break duration
               </button>
               <button
                 disabled={busy}
                 aria-expanded={panel === "extend"}
                 onClick={() => open("extend")}
               >
-                Set another focus target
+                Focus a little longer
               </button>
             </div>
             {panel && renderPanel()}
@@ -129,7 +129,7 @@ export function SessionActions({ data, now, busy, send }: Props) {
         }}
       >
         <div className="action-panel-title">
-          <span>{panel === "break" ? "Break length" : "Another focus target"}</span>
+          <span>{panel === "break" ? "Break length" : "More focus time"}</span>
           <button
             type="button"
             className="icon"
@@ -178,7 +178,7 @@ export function SessionActions({ data, now, busy, send }: Props) {
           </label>
         )}
         <button className="secondary full" disabled={busy}>
-          {panel === "break" ? "Start break" : "Set target"}
+          {panel === "break" ? "Start break" : "Start countdown"}
         </button>
       </form>
     );

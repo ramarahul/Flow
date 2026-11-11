@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import {
-  ArrowLeft,
   Coffee,
   Clock3,
   CalendarDays,
@@ -46,15 +45,7 @@ function consecutiveDays(data: Data, now: number) {
   return count;
 }
 
-export function StatsView({
-  data,
-  now,
-  onBack,
-}: {
-  data: Data;
-  now: number;
-  onBack: () => void;
-}) {
+export function StatsView({ data, now }: { data: Data; now: number }) {
   const second = Math.floor(now / 1000);
   const [period, setPeriod] = useState<StatsPeriod>("week");
   const [offset, setOffset] = useState(0);
@@ -110,24 +101,15 @@ export function StatsView({
 
   return (
     <section className="subview stats-view" aria-label="Focus statistics">
-      <button className="back-home" onClick={onBack}>
-        <ArrowLeft size={20} />
-        <span>Back to timer</span>
-      </button>
       <div className="stats-heading">
-        <h1>Your focus</h1>
-        <p>A little time, well spent.</p>
+        <p>Your time in flow.</p>
       </div>
       <div className="today-card">
         <span>
           <Clock3 size={17} /> Focused today
         </span>
         <strong>{duration(today)}</strong>
-        <p>
-          {today
-            ? "Time you made for what matters."
-            : "A fresh day. Begin whenever you’re ready."}
-        </p>
+        <p>{today ? "Time spent in focus today." : "No focus time recorded today."}</p>
       </div>
       <div className="week-card">
         <div className="stats-card-title">
@@ -240,9 +222,7 @@ export function StatsView({
             {period === "day" ? "hours" : period === "year" ? "months" : "days"}.
           </p>
         )}
-        {!selected.total && (
-          <p className="chart-empty">No focused time recorded in this period.</p>
-        )}
+        {!selected.total && <p className="chart-empty">No focus time here yet.</p>}
       </div>
       <TaskHistory data={data} totals={selected.taskTotals} periodLabel={periodLabel} />
       <div className="metric-cards" role="group" aria-label="Overall statistics">
@@ -283,9 +263,9 @@ export function StatsView({
           <>
             {!data.history.length ? (
               <p className="history-empty">
-                Nothing to catch up on.
+                No saved sessions yet.
                 <br />
-                Your first session starts with the timer.
+                Go to Timer in the menu to start a session.
               </p>
             ) : (
               <div className="session-history-list">

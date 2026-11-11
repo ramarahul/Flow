@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="280" viewBox="0 0 440 280" role="img" aria-label="Find your flow.">
+<defs><linearGradient id="bg"><stop stop-color="#eee7fa"/><stop offset="1" stop-color="#fffefa"/></linearGradient></defs>
+<rect width="440" height="280" fill="url(#bg)"/>
+<g font-family="Segoe UI, Arial, sans-serif" fill="#3b2e56">
+<text x="32" y="62" font-size="38" font-weight="700" letter-spacing="-2">flow<tspan fill="#7052b5">.</tspan></text>
+<text x="32" y="135" font-size="40" font-weight="600" letter-spacing="-2">Find your flow.</text>
+<text x="34" y="174" font-size="17" fill="#65587d">A little time. Your full attention.</text>
+<text x="34" y="239" font-size="12" fill="#7052b5">FOCUS TIMER FOR CHROME</text>
+
+</g></svg>

@@ -35,13 +35,13 @@ function Blocked() {
       <span className="brand">
         flow<span className="brand-dot">.</span>
       </span>
-      <p className="eyebrow">A LITTLE LESS DISTRACTION</p>
+      <p className="eyebrow">FOCUS IN PROGRESS</p>
       <h1>
-        Keep your attention
+        Keep your flow.
         <br />
-        where you want it.
+        This can wait.
       </h1>
-      <p>This website is on your Flow blocklist.</p>
+      <p>This website is blocked during focus.</p>
       <p>{status}</p>
       <p className="quiet">
         Ending focus saves your partial focus time and unblocks websites.

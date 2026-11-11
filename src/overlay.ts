@@ -198,11 +198,11 @@ export async function installFocusOverlay() {
     brand.className = "brand";
     brand.textContent = "flow.";
     const title = document.createElement("h1");
-    title.textContent = "Stay with your focus.";
+    title.textContent = "Keep your flow.";
     title.tabIndex = -1;
     const copy = document.createElement("p");
     copy.textContent =
-      "This website is on your blocklist. Switch to your work tab to keep focusing.";
+      "This website is blocked during focus. Head back to what you were working on.";
     const note = document.createElement("p");
     note.className = "note";
     note.textContent =

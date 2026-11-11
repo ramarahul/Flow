@@ -36,7 +36,7 @@ export function taskProgress(data: Data, taskId: string, now: number, actual?: n
   };
 }
 export function taskLabel(data: Data, id: string | null | undefined) {
-  if (!id) return "Quick Focus";
+  if (!id) return "General";
   const task = data.tasks.find((task) => task.id === id);
   return task
     ? `${task.icon ? task.icon + " " : ""}${task.name}${task.archived ? " (archived)" : ""}`

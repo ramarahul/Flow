@@ -3,11 +3,26 @@
 A compact Chrome extension for focused work, optional website blocking, and private
 focus statistics.
 
+## A look inside Flow
+
+The current interface, captured from the extension with illustrative task and
+history data. Click an image to view it at full resolution.
+
+![Flow home screen with its ten-minute focus timer](screenshots/flow-01-start-timer-1280x800.png)
+
+| Focus countdown                                                                        | Tasks and daily goals                                                                          |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| ![Flow during an active focus session](screenshots/flow-02-focus-session-1280x800.png) | ![Flow task selection and daily goals](screenshots/flow-03-tasks-and-daily-goals-1280x800.png) |
+
+| Focus statistics                                                                   | Website blocking                                                                                       |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| ![Flow weekly focus statistics](screenshots/flow-04-focus-statistics-1280x800.png) | ![Flow blocking a distracting website during focus](screenshots/flow-05-website-blocking-1280x800.png) |
+
 ## Features
 
 - Start a focus session by clicking the timer. The default is 10 minutes, with
   presets of 10, 20, 30, 60, 90, and 180 minutes, plus custom durations.
-- Choose a task or use Quick Focus. Set recurring daily goals and track time by task.
+- Choose a task or use General. Set recurring daily goals and track time by task.
 - Block distracting domains, including already-open websites, after granting
   optional website access.
 - Browse calendar week, month, and year graphs with matching task totals and saved
@@ -20,7 +35,7 @@ focus statistics.
 
 In Settings, turn off **Show task on home** to hide the task selector and goal
 progress. Your selected task continues tracking time; tasks remain accessible
-through **Today's goals** in the header.
+through **Menu > Tasks**. Settings and Statistics are in the same menu.
 
 ## How sessions work
 
@@ -40,8 +55,8 @@ Use the **pencil icon** beside a custom task (hover for **Edit task**) to change
 delete it. Use **Archived tasks** above the list to find tasks you can restore.
 Renaming preserves recorded time. Deletion requires
 confirmation and removes its goal; past focus remains in statistics as **Deleted
-task**. If it is the running task, the timer continues as **Quick Focus**. Quick
-Focus is the permanent default and cannot be deleted.
+task**. If it is the running task, the timer continues as **General**. General
+is the permanent default and cannot be deleted.
 
 Notifications and their action buttons depend on Chrome and operating-system
 settings. Deadline recovery runs when Chrome resumes after being closed or asleep.
