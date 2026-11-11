@@ -130,10 +130,10 @@ async function run(
       await chrome.notifications.create(id, {
         type: "basic",
         iconUrl: "icons/128.png",
-        title: isBreak ? "Your break is complete" : "Your focus target is reached",
+        title: isBreak ? "Break complete" : "Focus complete",
         message: isBreak
-          ? "Your session is saved. Start a fresh focus session whenever you are ready."
-          : "Your focus time is saved at the target. Take a break or repeat within 30 seconds; otherwise Flow returns home.",
+          ? "Your focus time is saved. Open Flow when you are ready to start again."
+          : "Time well spent. Take a break or repeat within 30 seconds. Otherwise, Flow saves your session and returns home.",
         silent: !next.settings.sound,
         requireInteraction: false,
         ...(!isBreak

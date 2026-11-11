@@ -23,8 +23,7 @@ function taskName(raw: unknown) {
   const name = raw.normalize("NFC").trim().replace(/\s+/g, " ");
   if (!name || name.length > 60)
     throw new Error("Use a task name between 1 and 60 characters.");
-  if (name.toLowerCase() === "quick focus")
-    throw new Error("Quick Focus is reserved. Choose another task name.");
+  if (name.toLowerCase() === "quick focus") throw new Error("Choose another task name.");
   return name;
 }
 function taskIcon(raw: unknown) {
@@ -109,7 +108,7 @@ export function updateTasks(data: Data, action: TaskAction, id: string) {
       !data.tasks.some((task) => task.id === action.taskId)
     )
       throw new Error(
-        "Task not found. Quick Focus is the permanent default and cannot be deleted.",
+        "Task not found. General is the permanent default and cannot be deleted.",
       );
     data.tasks = data.tasks.filter((task) => task.id !== action.taskId);
     data.goals = data.goals.filter((goal) => goal.taskId !== action.taskId);

@@ -14,10 +14,10 @@ export function TimerReadout({ timer, now }: { timer: Timer; now: number }) {
   const targetReached = !isBreak && left <= 0;
   const focused = focusTime(timer, now);
   const label = isBreak
-    ? "BREAK REMAINING"
+    ? "TAKE A BREATHER"
     : targetReached
-      ? "TIME FOCUSED"
-      : "FOCUS REMAINING";
+      ? "FOCUS COMPLETE"
+      : "IN FLOW";
   return (
     <>
       <p className="timer-label">{label}</p>
@@ -41,7 +41,7 @@ export function TimerReadout({ timer, now }: { timer: Timer; now: number }) {
           ? "Your focus time is saved."
           : targetReached
             ? timer.completedAt !== undefined
-              ? "Session complete. Choose your next step within 30 seconds."
+              ? "Time well spent. Ready for a break or another session?"
               : "Your focus keeps counting automatically."
             : `${clock(focused, true)} focused`}
       </p>

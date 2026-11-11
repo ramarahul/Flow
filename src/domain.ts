@@ -327,7 +327,7 @@ export function reduce(
       action.taskId !== null &&
       !d.tasks.some((task) => task.id === action.taskId && !task.archived)
     )
-      throw new Error("Choose an active task or Quick Focus.");
+      throw new Error("Choose an active task or General.");
     if (t.session && (t.session.taskId ?? null) !== action.taskId) {
       if (action.confirm !== true)
         throw new Error(

@@ -15,6 +15,34 @@ Keep the popup 300px wide. Do not enlarge it to accommodate controls. Use words 
 unfamiliar management actions. The task-edit pencil is an intentional icon-only
 control, with a hover tooltip and accessible name explaining its purpose.
 
+## Voice and wording
+
+Flow sounds calm, natural, and direct. Use short sentences and everyday words.
+Use the name sparingly: “In flow” can label the running timer, but keep actions
+literal, such as “Take a break”, “Repeat session”, and “Delete task”. Never turn
+task names, statistics, or destructive actions into metaphors.
+
+Prefer helpful context over slogans. Explain what happens next, especially when
+time stops, a session ends, or data is deleted. Avoid pressure, praise, rewards,
+technical terms such as “focus target”, and decorative dashes in headings.
+Keep labels consistent across the popup, notifications, and blocked websites.
+Show the installed version in the Settings footer using
+`chrome.runtime.getManifest().version`; never hardcode it.
+The timer invitation says “Find your flow”; its action says “Start timer”.
+The default task is “General”. Its supporting text shows time recorded today. Use “Add task”
+for creation. Do not add instructions about editing tasks; the pencil's tooltip
+and accessible name explain its action.
+
+Use one labeled Menu disclosure for Timer, Tasks, Statistics, and Settings.
+Keep it closed initially and close it on selection, Escape, and outside clicks.
+Show the Flow wordmark only on the timer. Secondary pages use their title in
+the same header position: Your tasks, Your focus, and Your Flow (Settings).
+Do not stack a page title beneath the wordmark or introduce a large back bar.
+Both task entry points open the same screen. The task editor alone has a compact
+Back to tasks control and a secondary heading. Empty statistics describe the
+missing data; direct people to Timer in the menu rather than saying a session
+starts on the statistics page.
+
 ## Color roles
 
 Use colors by role, not by choosing a new shade for each screen.
@@ -37,7 +65,7 @@ Use colors by role, not by choosing a new shade for each screen.
 | Warm action text | `--action-ink`                          | `#49345d`             | Text on those warm controls                |
 
 The warm accent is already part of existing save/session controls. Do not spread it
-to every card, task action, or chart. The timer stays ivory. Ordinary New task and
+to every card, task action, or chart. The timer stays ivory. Ordinary Add task and
 Edit task actions use the surface/accent roles, not a new dominant color.
 
 Only the timer, selected task, and existing Today summary use subtle gradients.
@@ -81,8 +109,8 @@ their own white text. Do not inherit the dark-theme body text on a light hero ca
   brief 180ms ease-out transitions using the shared motion tokens. The timer uses
   a stronger soft compression and rounded corners on press, with a 420ms spring
   release. Screens and countdowns appear immediately, without entrance animation,
-  translation, scaling, or bouncing. The navigation highlight uses a short 180ms
-  ease-out with no spring, and switch knobs stretch briefly while pressed.
+  translation, scaling, or bouncing. The navigation menu opens without an entrance
+  animation, and switch knobs stretch briefly while pressed.
   Avoid hard pedestal shadows, glass, and backdrop blur.
   Reduced-motion mode removes transitions, stretching,
   compression, and corner changes.
@@ -113,7 +141,7 @@ add a second competing start action or decorative progress metaphor.
 
 Show task on home is enabled by default. Turning it off removes the task selector
 and its goal progress without reserving empty space or changing the selected task.
-The header's Today's goals action remains available. Reuse the existing Settings
+The Menu > Tasks action remains available. Reuse the existing Settings
 toggle style and explain that hiding a task does not stop its time attribution.
 
 ### Running countdown
@@ -129,8 +157,8 @@ reduced-motion rule.
 
 ### Tasks
 
-Keep selection lightweight: New task above the list, an Archived tasks text link,
-and Quick Focus as the permanent default. No full-width management toolbar, filter
+Keep selection lightweight: Add task above the list, an Archived tasks text link,
+and General as the permanent default. No full-width management toolbar, filter
 tabs with counters, or repeated Rename/Archive/Delete action bars.
 
 Each custom row has one visible **pencil icon**, separate from its task selection
@@ -141,12 +169,12 @@ not only a check on an unchanged surface.
 
 The editor contains the task name, goal settings, and labeled **Archive task** and
 **Delete task** actions. Deletion needs a separate confirmation that explains what
-happens to history and a running timer. Quick Focus has no edit or delete action.
+happens to history and a running timer. General has no edit or delete action.
 Do not replace clear labels with an unexplained sliders icon or ellipsis menu.
 
 ### Statistics
 
-Use the existing full-width Back to timer control, an ivory Today card, a violet
+Use an ivory Today card, a violet
 graph, and compact supporting totals. Keep the graph ahead of secondary metrics.
 Use one Day / Week / Month / Year dropdown and explicit date ranges. Day bars
 represent local hours, including 23/25-hour daylight-saving days. Weeks start Monday;

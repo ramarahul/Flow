@@ -45,11 +45,20 @@ const command = (page, action) =>
     return result.data;
   }, action);
 
+async function navigate(page, name) {
+  await page.getByText("Menu", { exact: true }).click();
+  await page.getByRole("button", { name, exact: true }).click();
+}
+
 async function task(page, name, target = 2) {
   await page.getByRole("button", { name: /Select task/ }).click();
-  await page.getByRole("button", { name: "New task", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Your tasks", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('.app-menu button[aria-current="page"]')).toHaveText("Tasks");
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
   await page.getByLabel("Task name", { exact: true }).fill(name);
-  await page.getByLabel("Daily target, in minutes").fill(String(target));
+  await page.getByLabel("Daily goal in minutes").fill(String(target));
   await page.getByRole("button", { name: "Save task", exact: true }).click();
 }
 async function select(page, name) {
@@ -82,10 +91,42 @@ test("loads the real extension and persists a single-button home preference", as
   extension,
 }, testInfo) => {
   const { page, worker, context, id } = extension;
+  await expect(page.getByRole("button", { name: "Start 10 minute timer" })).toBeVisible();
+  await expect(page.getByText("Start timer", { exact: true })).toBeVisible();
+  const menu = page.locator(".app-menu");
+  await expect(menu).not.toHaveAttribute("open");
+  await page.screenshot({ path: testInfo.outputPath("home-minimal.png") });
+  await page.getByText("Menu", { exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Start 10 minute focus session" }),
+    page.getByRole("button", { name: "Statistics", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(menu).not.toHaveAttribute("open");
+  await expect(page.locator(".app-menu summary")).toBeFocused();
+  await page.getByText("Menu", { exact: true }).click();
+  await page.locator(".brand").click();
+  await expect(menu).not.toHaveAttribute("open");
+  await page.getByRole("button", { name: /Select task/ }).click();
+  await expect(page.getByRole("button", { name: /^General/ })).toBeVisible();
+  await expect(page.getByText("Choose where your time goes.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Edit task:/ })).toHaveCount(0);
+  await navigate(page, "Timer");
+  await navigate(page, "Tasks");
+  await expect(menu).not.toHaveAttribute("open");
+  await expect(page.locator("header .brand")).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+  await expect(
+    page.getByRole("heading", { name: "Your tasks", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".back-home, .back")).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("tasks-navigation.png") });
+  await navigate(page, "Settings");
+  await expect(
+    page.getByRole("heading", { name: "Your Flow", exact: true }),
+  ).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("settings-navigation.png") });
+  const version = await page.evaluate(() => chrome.runtime.getManifest().version);
+  await expect(page.locator(".privacy")).toContainText(`Flow · Version ${version}`);
   // Exercise asynchronous saves even on machines with a fast service worker.
   await page.evaluate(() => {
     const send = chrome.runtime.sendMessage.bind(chrome.runtime);
@@ -104,16 +145,14 @@ test("loads the real extension and persists a single-button home preference", as
   await focus.fill("20");
   await focus.press("Tab");
   await expect.poll(async () => (await stored(worker)).settings.focus).toBe(20);
-  await page.getByRole("button", { name: "Flow timer" }).click();
-  await expect(
-    page.getByRole("button", { name: "Start 20 minute focus session" }),
-  ).toBeVisible();
+  await navigate(page, "Timer");
+  await expect(page.getByRole("button", { name: "Start 20 minute timer" })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Focus duration" })).toHaveCount(0);
   await page.close();
   const reopened = await context.newPage();
   await reopened.goto(`chrome-extension://${id}/index.html`);
   await expect(
-    reopened.getByRole("button", { name: "Start 20 minute focus session" }),
+    reopened.getByRole("button", { name: "Start 20 minute timer" }),
   ).toBeVisible();
   expect((await stored(worker)).settings.showDuration).toBe(false);
   await reopened.screenshot({ path: testInfo.outputPath("home.png") });
@@ -127,7 +166,7 @@ test("task switches, goal completion, repeat, breaks and popup restoration share
   await select(page, "Reading");
   await page.getByRole("combobox", { name: "Focus duration" }).selectOption("custom");
   await page.getByLabel("Custom focus minutes").fill("2");
-  await page.getByRole("button", { name: "Start 2 minute focus session" }).click();
+  await page.getByRole("button", { name: "Start 2 minute timer" }).click();
   const session = (await stored(worker)).timer.session.id;
   await task(page, "Coding", 1);
   await expect(page.getByRole("button", { name: /^Reading/ })).toHaveAttribute(
@@ -154,7 +193,7 @@ test("task switches, goal completion, repeat, breaks and popup restoration share
   expect((await stored(worker)).timer.session.id).toBe(session);
   await expire(worker, reopened);
   await expect(reopened.getByText("Daily goal reached", { exact: true })).toBeVisible();
-  await expect(reopened.getByText("TIME FOCUSED", { exact: true })).toBeVisible();
+  await expect(reopened.getByText("FOCUS COMPLETE", { exact: true })).toBeVisible();
   const repeated = await command(reopened, { type: "repeat" });
   expect(repeated.timer.session.id).not.toBe(session);
   expect(repeated.timer.session.plannedMs).toBe(120_000);
@@ -169,22 +208,22 @@ test("task switches, goal completion, repeat, breaks and popup restoration share
   ).toBeVisible();
   await reopened.getByRole("button", { name: "End break", exact: true }).click();
   await expect(
-    reopened.getByRole("button", { name: "Start 10 minute focus session" }),
+    reopened.getByRole("button", { name: "Start 10 minute timer" }),
   ).toBeVisible();
   expect((await stored(worker)).history).toHaveLength(2);
-  await reopened.getByRole("button", { name: "Statistics", exact: true }).click();
+  await navigate(reopened, "Statistics");
   await expect(reopened.getByRole("heading", { name: "Focus by task" })).toBeVisible();
-  await expect(reopened.getByRole("button", { name: "Back to timer" })).toBeVisible();
+  await expect(reopened.getByText("Menu", { exact: true })).toBeVisible();
 });
 
-test("edits recurring goals, archives and restores tasks, and keeps Quick Focus available", async ({
+test("edits recurring goals, archives and restores tasks, and keeps General available", async ({
   extension,
 }) => {
   const { page, worker } = extension;
   await task(page, "Reading", 120);
   await page.getByRole("button", { name: "Edit task: Reading", exact: true }).click();
   await page.getByLabel("Task name", { exact: true }).fill("Books");
-  await page.getByLabel("Daily goal enabled").uncheck();
+  await page.getByLabel("Set a daily goal").uncheck();
   await page.getByLabel("Every day").uncheck();
   await page.getByRole("button", { name: "Save task", exact: true }).click();
   let data = await stored(worker);
@@ -197,10 +236,10 @@ test("edits recurring goals, archives and restores tasks, and keeps Quick Focus 
   await page.getByRole("button", { name: "Edit task: Books", exact: true }).click();
   await page.getByRole("button", { name: "Restore task", exact: true }).click();
   expect((await stored(worker)).tasks[0].archived).toBe(false);
-  await page.getByRole("button", { name: "Back to timer" }).click();
+  await navigate(page, "Timer");
   await page.getByRole("button", { name: /Select task/ }).click();
-  await select(page, "Quick Focus");
-  await page.getByRole("button", { name: "Start 10 minute focus session" }).click();
+  await select(page, "General");
+  await page.getByRole("button", { name: "Start 10 minute timer" }).click();
   expect((await stored(worker)).timer.session.taskId).toBeNull();
 });
 
@@ -208,7 +247,7 @@ test("returns home without adding focus time when the completion window expires"
   extension,
 }) => {
   const { page, worker } = extension;
-  await page.getByRole("button", { name: "Start 10 minute focus session" }).click();
+  await page.getByRole("button", { name: "Start 10 minute timer" }).click();
   await expire(worker, page);
   await expect(page.getByRole("timer", { name: "Completed focus time" })).toBeVisible();
   expect((await stored(worker)).timer.session.focusMs).toBe(600000);
@@ -224,9 +263,7 @@ test("returns home without adding focus time when the completion window expires"
     await chrome.storage.local.set({ flow });
   });
   await command(page, { type: "tick" });
-  await expect(
-    page.getByRole("button", { name: "Start 10 minute focus session" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start 10 minute timer" })).toBeVisible();
   const saved = await stored(worker);
   expect(saved.history).toHaveLength(1);
   expect(saved.history[0].focusMs).toBe(600000);
@@ -238,7 +275,7 @@ test("deletes a task with confirmation and retains the permanent default", async
   const { page, worker } = extension;
   await task(page, "Reading");
   await select(page, "Reading");
-  await page.getByRole("button", { name: "Start 10 minute focus session" }).click();
+  await page.getByRole("button", { name: "Start 10 minute timer" }).click();
   const sessionId = (await stored(worker)).timer.session.id;
   await page.getByRole("button", { name: /Select task/ }).click();
   await expect(
@@ -247,7 +284,7 @@ test("deletes a task with confirmation and retains the permanent default", async
   await page.getByRole("button", { name: "Edit task: Reading", exact: true }).click();
   await page.getByRole("button", { name: "Delete task", exact: true }).click();
   const confirmation = page.getByRole("alertdialog", { name: "Delete Reading?" });
-  await expect(confirmation).toContainText("continue as Quick Focus");
+  await expect(confirmation).toContainText("continue as General");
   await confirmation.getByRole("button", { name: "Cancel", exact: true }).click();
   expect((await stored(worker)).tasks).toHaveLength(1);
   await page.getByRole("button", { name: "Delete task", exact: true }).click();
@@ -255,7 +292,7 @@ test("deletes a task with confirmation and retains the permanent default", async
     .getByRole("button", { name: "Delete permanently", exact: true })
     .click();
   await expect(page.getByRole("button", { name: /^Reading/ })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /^Quick Focus/ })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: /^General/ })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
@@ -265,7 +302,7 @@ test("deletes a task with confirmation and retains the permanent default", async
   expect(data.timer.session.id).toBe(sessionId);
   expect(data.timer.session.taskId).toBeNull();
   await page.getByRole("button", { name: "Archived tasks", exact: true }).click();
-  await expect(page.getByRole("button", { name: /^Quick Focus/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^General/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Edit task:/ })).toHaveCount(0);
 });
 
@@ -276,13 +313,13 @@ test("hides the home task selector without losing task selection or tracking", a
   await task(page, "Reading");
   await select(page, "Reading");
   const taskId = (await stored(worker)).selectedTaskId;
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await navigate(page, "Settings");
   const toggle = page.getByLabel("Show task on home", { exact: true });
   await expect(toggle).toBeChecked();
   await toggle.click();
   await expect(toggle).not.toBeChecked();
   await expect.poll(async () => (await stored(worker)).settings.showTask).toBe(false);
-  await page.getByRole("button", { name: "Flow timer", exact: true }).click();
+  await navigate(page, "Timer");
   await expect(page.getByRole("button", { name: /Select task/ })).toHaveCount(0);
   await expect(
     page.getByRole("progressbar", { name: "Daily goal progress" }),
@@ -291,20 +328,20 @@ test("hides the home task selector without losing task selection or tracking", a
   const reopened = await context.newPage();
   await reopened.goto(`chrome-extension://${id}/index.html`);
   await expect(
-    reopened.getByRole("button", { name: "Start 10 minute focus session" }),
+    reopened.getByRole("button", { name: "Start 10 minute timer" }),
   ).toBeVisible();
   await expect(reopened.getByRole("button", { name: /Select task/ })).toHaveCount(0);
-  await reopened.getByRole("button", { name: "Start 10 minute focus session" }).click();
+  await reopened.getByRole("button", { name: "Start 10 minute timer" }).click();
   expect((await stored(worker)).timer.session.taskId).toBe(taskId);
-  await reopened.getByRole("button", { name: "Today's goals", exact: true }).click();
+  await navigate(reopened, "Tasks");
   await expect(reopened.getByRole("button", { name: /^Reading/ })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
-  await reopened.getByRole("button", { name: "Settings", exact: true }).click();
+  await navigate(reopened, "Settings");
   await reopened.getByLabel("Show task on home", { exact: true }).click();
   await expect(reopened.getByLabel("Show task on home", { exact: true })).toBeChecked();
-  await reopened.getByRole("button", { name: "Flow timer", exact: true }).click();
+  await navigate(reopened, "Timer");
   await expect(
     reopened.getByRole("button", { name: /Select task.*Reading/ }),
   ).toBeVisible();
@@ -351,7 +388,7 @@ test("liquid background settles, respects reduced motion, and leaves controls cl
   await expect.poll(paintedPixels).toBe(0);
   await expect(timerSurface).toHaveCSS("translate", "none");
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await navigate(page, "Settings");
   const effect = page.getByRole("checkbox", { name: "Liquid surface effect" });
   await expect(effect).toBeChecked();
   await effect.click();
@@ -359,7 +396,7 @@ test("liquid background settles, respects reduced motion, and leaves controls cl
   await expect.poll(async () => (await stored(worker)).settings.liquidEffect).toBe(false);
   await expect(wake).toHaveCount(0);
   await page.reload();
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await navigate(page, "Settings");
   await expect(
     page.getByRole("checkbox", { name: "Liquid surface effect" }),
   ).not.toBeChecked();
@@ -370,8 +407,8 @@ test("liquid background settles, respects reduced motion, and leaves controls cl
   ).toBeChecked();
   await expect.poll(async () => (await stored(worker)).settings.liquidEffect).toBe(true);
   await expect(wake).toBeVisible();
-  await page.getByRole("button", { name: "Flow timer" }).click();
-  await page.getByRole("button", { name: "Start 10 minute focus session" }).click();
+  await navigate(page, "Timer");
+  await page.getByRole("button", { name: "Start 10 minute timer" }).click();
   await expect(page.getByRole("timer", { name: "Focus time remaining" })).toBeVisible();
 });
 
@@ -379,7 +416,7 @@ test("keeps the countdown compact with accurate progress and reduced-motion supp
   extension,
 }, testInfo) => {
   const { page, worker } = extension;
-  await page.getByRole("button", { name: "Start 10 minute focus session" }).click();
+  await page.getByRole("button", { name: "Start 10 minute timer" }).click();
   await expect(page.getByRole("timer", { name: "Focus time remaining" })).toBeVisible();
   await expect(page.locator(".screen-content")).toHaveCSS("animation-name", "none");
   await expect(page.getByRole("timer")).toHaveCSS("animation-name", "none");
@@ -419,6 +456,7 @@ test("keeps the countdown compact with accurate progress and reduced-motion supp
 test("keeps scrollable screens usable and explains task icons", async ({ extension }) => {
   const { page } = extension;
   for (const name of ["Settings", "Statistics"]) {
+    await page.getByText("Menu", { exact: true }).click();
     const navigation = page.getByRole("button", { name, exact: true });
     await expect(navigation).toHaveAttribute("title", name);
     await navigation.click();
@@ -440,7 +478,7 @@ test("keeps scrollable screens usable and explains task icons", async ({ extensi
       .poll(() => panel.evaluate((element) => element.scrollTop))
       .toBeGreaterThan(0);
   }
-  await page.getByRole("button", { name: "Flow timer", exact: true }).click();
+  await navigate(page, "Timer");
   await task(page, "Reading");
   const edit = page.getByRole("button", { name: "Edit task: Reading", exact: true });
   await expect(edit).toHaveAttribute("title", "Edit task: Reading");
@@ -476,7 +514,7 @@ test("browses saved graph periods and expands older session history", async ({
     });
     await chrome.storage.local.set({ flow });
   });
-  await page.getByRole("button", { name: "Statistics", exact: true }).click();
+  await navigate(page, "Statistics");
   await expect(page.getByRole("heading", { name: "This week" })).toBeVisible();
   await expect(page.locator(".session-row")).toHaveCount(0);
   const history = page.locator(".session-history-card > summary");

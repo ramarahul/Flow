@@ -69,14 +69,14 @@ describe("recurring task goals and durable interval attribution", () => {
     assert.deepEqual(validateData(data).history, history);
     assert.deepEqual(migrate(data, base + 3 * minute).history, history);
   });
-  it("keeps Quick Focus available when every custom task has been deleted", () => {
+  it("keeps General available when every custom task has been deleted", () => {
     let data = tasks();
     data = reduce(data, { type: "archiveTask", taskId: "reading", archived: true }, base);
     for (const taskId of ["reading", "coding"])
       data = reduce(data, { type: "deleteTask", taskId }, base);
     assert.deepEqual(data.tasks, []);
     assert.deepEqual(data.goals, []);
-    assert.equal(taskLabel(data, data.selectedTaskId), "Quick Focus");
+    assert.equal(taskLabel(data, data.selectedTaskId), "General");
     assert.throws(
       () => reduce(data, { type: "deleteTask", taskId: null as unknown as string }, base),
       /permanent default/,
@@ -88,7 +88,7 @@ describe("recurring task goals and durable interval attribution", () => {
     data = reduce(data, { type: "start", minutes: 10 }, base);
     assert.equal(data.timer.session!.taskId, null);
   });
-  it("switches future time to Quick Focus when deleting the running task without restarting", () => {
+  it("switches future time to General when deleting the running task without restarting", () => {
     let data = reduce(
       select(tasks(), "reading"),
       { type: "start", minutes: 10 },
@@ -128,7 +128,7 @@ describe("recurring task goals and durable interval attribution", () => {
     assert.equal(taskTotals(d, base + 100 * minute).get("reading"), 90 * minute);
     assert.equal(taskProgress(d, "reading", base + 100 * minute).target, 120 * minute);
   });
-  it("keeps separate tasks and Quick Focus independent", () => {
+  it("keeps separate tasks and General independent", () => {
     let d = work(tasks(), "reading", base, 40);
     d = work(d, "coding", base + 50 * minute, 20);
     d = work(d, null, base + 80 * minute, 10);
@@ -309,7 +309,7 @@ describe("recurring task goals and durable interval attribution", () => {
     );
     assert.equal(select(d, "reading").selectedTaskId, "reading");
   });
-  it("migrates old history and an active timer to Quick Focus without losing data", () => {
+  it("migrates old history and an active timer to General without losing data", () => {
     let old = work(defaults(), null, base, 10);
     old = reduce(old, { type: "start", minutes: 25 }, base + 20 * minute, "active");
     const legacy = { ...old, version: 1 };

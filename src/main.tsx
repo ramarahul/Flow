@@ -1,18 +1,6 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  ArrowLeft,
-  BarChart3,
-  Download,
-  Play,
-  Plus,
-  Settings2,
-  Shield,
-  Trash2,
-  Upload,
-  X,
-  ListTodo,
-} from "lucide-react";
+import { Download, Play, Plus, Shield, Trash2, Upload, X } from "lucide-react";
 import {
   defaults,
   focusTime,
@@ -30,6 +18,7 @@ import { StatsView } from "./StatsView";
 import { TimerReadout } from "./TimerReadout";
 import { LiquidBackground } from "./LiquidBackground";
 import { TaskPicker, TaskViews } from "./TaskViews";
+import { AppHeader, type View } from "./AppHeader";
 const clock = (ms: number) => {
   const s = Math.ceil(Math.abs(ms) / 1000);
   return `${Math.floor(s / 60)
@@ -42,7 +31,7 @@ function App() {
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [now, setNow] = useState(Date.now()),
-    [view, setView] = useState("timer"),
+    [view, setView] = useState<View>("timer"),
     [minutes, setMinutes] = useState(10),
     [customDuration, setCustomDuration] = useState(false),
     [host, setHost] = useState(""),
@@ -130,43 +119,7 @@ function App() {
   return (
     <main data-view={view}>
       <LiquidBackground enabled={s.liquidEffect} />
-      <header>
-        <button
-          className="brand"
-          onClick={() => setView("timer")}
-          aria-label="Flow timer"
-          title="Back to timer"
-        >
-          flow
-          <span className="brand-dot">.</span>
-        </button>
-        <nav aria-label="Main navigation">
-          <button
-            title="Today's goals"
-            aria-label="Today's goals"
-            className={view === "goals" ? "selected icon" : "icon"}
-            onClick={() => setView(view === "goals" ? "timer" : "goals")}
-          >
-            <ListTodo size={18} />
-          </button>
-          <button
-            title="Statistics"
-            aria-label="Statistics"
-            className={view === "stats" ? "selected icon" : "icon"}
-            onClick={() => setView(view === "stats" ? "timer" : "stats")}
-          >
-            <BarChart3 size={18} />
-          </button>
-          <button
-            title="Settings"
-            aria-label="Settings"
-            className={view === "settings" ? "selected icon" : "icon"}
-            onClick={() => setView(view === "settings" ? "timer" : "settings")}
-          >
-            <Settings2 size={18} />
-          </button>
-        </nav>
-      </header>
+      <AppHeader view={view} onNavigate={setView} />
       {error && (
         <div role="alert" className="error">
           {error}
@@ -182,7 +135,7 @@ function App() {
       )}
       <div className="screen-content" key={view}>
         {!loaded ? (
-          <div className="loading">Opening your workspace…</div>
+          <div className="loading">Opening Flow…</div>
         ) : view === "timer" ? (
           <>
             {s.showTask && (
@@ -202,12 +155,12 @@ function App() {
                     selectedMinutes > 720
                   }
                   onClick={() => void send({ type: "start", minutes: selectedMinutes })}
-                  aria-label={`Start ${selectedMinutes} minute focus session`}
+                  aria-label={`Start ${selectedMinutes} minute timer`}
                 >
-                  <span className="timer-label">FOCUS SESSION</span>
+                  <span className="timer-label">FIND YOUR FLOW</span>
                   <span className="digits">{clock(selectedMinutes * 60000)}</span>
                   <span className="start-hint">
-                    <Play size={13} fill="currentColor" /> Start focus
+                    <Play size={13} fill="currentColor" /> Start timer
                   </span>
                 </button>
               ) : (
@@ -295,26 +248,14 @@ function App() {
               </>
             )}
           </>
-        ) : view === "tasks" || view === "goals" ? (
-          <TaskViews
-            data={data}
-            now={now}
-            mode={view}
-            send={send}
-            onBack={() => setView("timer")}
-          />
+        ) : view === "tasks" ? (
+          <TaskViews data={data} now={now} send={send} onBack={() => setView("timer")} />
         ) : view === "stats" ? (
-          <StatsView data={data} now={now} onBack={() => setView("timer")} />
+          <StatsView data={data} now={now} />
         ) : (
           <section className="subview settings">
-            <button className="back" onClick={() => setView("timer")}>
-              <ArrowLeft size={14} /> Timer
-            </button>
-            <h1>
-              Make space<span>.</span>
-            </h1>
-            <p className="subtitle">Small preferences. A better rhythm.</p>
-            <div className="section-label">YOUR DEFAULTS</div>
+            <p className="subtitle">Set things up your way.</p>
+            <div className="section-label">TIMER & APPEARANCE</div>
             <label className="setting">
               Focus duration{" "}
               <span>
@@ -380,8 +321,8 @@ function App() {
               />
             </label>
             <p className="quiet">
-              Turn this off for a single-button home screen. The timer will use your
-              default focus duration above.
+              Hide the duration picker to keep just the timer. Sessions use your default
+              duration above.
             </p>
             <label className="setting">
               Show task on home
@@ -392,8 +333,7 @@ function App() {
               />
             </label>
             <p className="quiet">
-              Hide the task selector and goal progress on home. Your selected task still
-              tracks time. Manage tasks from Today's goals in the header.
+              Your selected task still tracks time when hidden. Find your tasks in Menu.
             </p>
             <label className="setting">
               Liquid surface effect
@@ -404,8 +344,8 @@ function App() {
               />
             </label>
             <p className="quiet">
-              Let the background and button surfaces react to your pointer. Turn off for a
-              still interface. Reduced motion also disables this effect.
+              A ripple follows your pointer across Flow. Turn off for a still screen. Also
+              off when reduced motion is enabled.
             </p>
             <label className="setting">
               Notifications
@@ -459,12 +399,12 @@ function App() {
               />
             </label>
             <p className="quiet">
-              Only your listed domains are blocked. Blocking pauses during breaks and when
-              focus is paused.
+              Only websites on your list are blocked, and only while your focus timer is
+              running.
             </p>
             {active && (
               <p className="quiet" role="status">
-                End focus or end your break to change your blocklist and blocking toggle.
+                You can change website blocking when you return to the timer home screen.
               </p>
             )}
             <form
@@ -519,8 +459,8 @@ function App() {
             </div>
             <div className="section-label">YOUR LOCAL DATA</div>
             <p className="quiet">
-              Exports include saved focus time and preferences. End focus or end your
-              break to include the current time.
+              Backups include your tasks, goals, settings, and saved sessions. The current
+              session is included only after it ends.
             </p>
             <div className="data-actions">
               <button className="secondary" onClick={exportData}>
@@ -562,7 +502,9 @@ function App() {
             </button>
             {confirmReset && (
               <div className="reset-panel">
-                <p>This permanently clears your timer, history, and preferences.</p>
+                <p>
+                  This permanently deletes your tasks, goals, settings, and focus history.
+                </p>
                 <button
                   className="secondary danger"
                   disabled={active || busy}
@@ -581,9 +523,11 @@ function App() {
               </div>
             )}
             <p className="privacy">
-              Flow 1.0 · Local by design.
+              Flow · Version {chrome.runtime.getManifest().version}
               <br />
-              No account. No tracking.
+              Your time stays on this device.
+              <br />
+              No account or tracking.
             </p>
           </section>
         )}

@@ -1,8 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import assert from "node:assert/strict";
+import { approvedRuleset } from "./github-ruleset.mjs";
 
-const ruleset = JSON.parse(await readFile(".github/main-ruleset.json", "utf8"));
+const ruleset = approvedRuleset(
+  JSON.parse(
+    await readFile(new URL("../.github/main-ruleset.json", import.meta.url), "utf8"),
+  ),
+);
 const explicit = process.argv.indexOf("--repo");
 const remote =
   process.env.GITHUB_REPOSITORY ??
@@ -27,6 +32,7 @@ if (!process.argv.includes("--apply")) {
   async function api(path, method = "GET", body, allowMissing = false) {
     const response = await fetch(`https://api.github.com${path}`, {
       method,
+      redirect: "error",
       signal: AbortSignal.timeout(30_000),
       headers: {
         Authorization: `Bearer ${token}`,
@@ -90,6 +96,6 @@ if (!process.argv.includes("--apply")) {
       type: "branch",
     });
   console.log(
-    `Configured ${repo}: main PR checks and chrome-web-store approval environment. Store credentials still need to be added as environment secrets. No code was pushed or published.`,
+    `Configured ${repo}: main PR checks and chrome-web-store approval environment. Configure publishing variables as described in .github/RELEASING.md. No code was pushed or published.`,
   );
 }

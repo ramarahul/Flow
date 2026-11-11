@@ -14,6 +14,7 @@
     "test:e2e": "playwright test",
     "verify:extension": "node scripts/verify-extension.mjs",
     "package:extension": "node scripts/package-extension.mjs",
+    "store:assets": "npm run build && node scripts/generate-store-assets.mjs",
     "configure:github": "node scripts/configure-github.mjs",
     "release:prepare": "node scripts/release-version.mjs"
   },
