@@ -2,6 +2,35 @@ import { it } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { parse } from "yaml";
+import { approvedRuleset } from "../../scripts/github-ruleset.mjs";
+
+it("sends only the reviewed setup policy and rejects extra file data or weakened protections", async () => {
+  const raw = JSON.parse(await readFile(".github/main-ruleset.json", "utf8"));
+  const approved = approvedRuleset(raw);
+  assert.deepEqual(approved, raw);
+  assert.notEqual(approved, raw);
+  raw.name = "changed after validation";
+  assert.equal(approved.name, "main requires verified PRs");
+  const variants = [
+    { ...approved, extra: "private-file-content" },
+    { ...approved, enforcement: "disabled" },
+    { ...approved, name: "private-file-content" },
+    { ...approved, rules: [] },
+    { ...approved, conditions: { ref_name: { include: ["~ALL"], exclude: [] } } },
+    { ...approved, bypass_actors: [{ actor_type: "Integration", actor_id: 1 }] },
+    null,
+  ];
+  for (const input of variants) {
+    assert.throws(
+      () => approvedRuleset(input),
+      (error) => {
+        assert.match(error.message, /No request was sent/);
+        assert(!error.message.includes("private-file-content"));
+        return true;
+      },
+    );
+  }
+});
 
 it("protects PR jobs and gates on every stage, including merge-queue checks", async () => {
   const ci = parse(await readFile(".github/workflows/ci.yml", "utf8"));

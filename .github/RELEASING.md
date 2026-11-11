@@ -56,6 +56,10 @@ automatically by adding these files.
    repository with **Administration: write**. Never put it in a file or commit it.
    Run `npm run configure:github -- --apply`, then remove the token from the process.
    The script configures its own ruleset without deleting unrelated rulesets.
+   It validates the JSON against the reviewed policy in `scripts/github-ruleset.mjs`
+   and sends only that fixed payload to GitHub. Unexpected fields or policy changes
+   stop setup before any request. Intentional policy changes require reviewing
+   both files together. Authenticated API requests reject redirects.
    Alternatively, import `.github/main-ruleset.json` in GitHub Settings → Rules →
    Rulesets and configure the environment described below manually.
 3. Confirm the active `main requires verified PRs` ruleset requires a PR and the
