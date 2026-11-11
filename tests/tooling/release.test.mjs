@@ -6,6 +6,81 @@ import { join, resolve, dirname, basename } from "node:path";
 import { execFileSync } from "node:child_process";
 import { prepareVersion, compareVersions } from "../../scripts/release-version.mjs";
 import { releasePlan } from "../../scripts/release-plan.mjs";
+import { automaticReleaseNotes, notesFromCommits } from "../../scripts/release-notes.mjs";
+
+it("generates release notes from merge titles and commits without treating text as commands", () => {
+  assert.equal(
+    notesFromCommits([
+      "Merge pull request #12 from owner/feature\n\nImprove task selection",
+      "Fix timer recovery (#13)",
+      "Fix timer recovery (#13)",
+      "$(do-not-execute)\n## not a changelog heading",
+    ]),
+    "- Improve task selection\n- Fix timer recovery (#13)\n- $(do-not-execute)",
+  );
+  assert.match(notesFromCommits([]), /No new commits/);
+});
+
+it("finds the version boundary despite later package edits and prepares a release without manual notes", async () => {
+  const root = await mkdtemp(join(tmpdir(), "flow-release-test-"));
+  const git = (...args) =>
+    execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: "pipe" });
+  const commit = (title) => {
+    git("add", ".");
+    git(
+      "-c",
+      "user.name=Release test",
+      "-c",
+      "user.email=release@example.invalid",
+      "commit",
+      "-m",
+      title,
+    );
+  };
+  try {
+    git("init");
+    await mkdir(join(root, "public"));
+    await writeFile(join(root, "package.json"), JSON.stringify({ version: "1.0.0" }));
+    commit("Initial release");
+    await writeFile(join(root, "earlier.txt"), "earlier feature");
+    commit("Already released feature");
+    await writeFile(join(root, "package.json"), JSON.stringify({ version: "1.1.0" }));
+    commit("Prepare Flow 1.1.0");
+    assert.match(automaticReleaseNotes(root, "1.1.0"), /No new commits/);
+    await writeFile(join(root, "feature.txt"), "new feature");
+    commit("Improve task selection (#12)");
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({ version: "1.1.0", scripts: { build: "vite build" } }),
+    );
+    commit("Improve build tooling (#13)");
+    assert.equal(
+      automaticReleaseNotes(root, "1.1.0"),
+      "- Improve build tooling (#13)\n- Improve task selection (#12)",
+    );
+    await writeFile(
+      join(root, "package-lock.json"),
+      JSON.stringify({ version: "1.1.0", packages: { "": { version: "1.1.0" } } }),
+    );
+    await writeFile(
+      join(root, "public/manifest.json"),
+      JSON.stringify({ version: "1.1.0" }),
+    );
+    await writeFile(
+      join(root, "CHANGELOG.md"),
+      "# Changelog\n\n## [Unreleased]\n\n## [1.1.0]\n\n- Earlier release.\n",
+    );
+    assert.equal(await prepareVersion("minor", root, "", true), "1.2.0");
+    const notes = await readFile(join(root, "CHANGELOG.md"), "utf8");
+    assert.match(notes, /## \[1.2.0\]/);
+    assert.match(notes, /Improve task selection/);
+    assert(!notes.includes("Already released feature"));
+  } finally {
+    assert.equal(dirname(resolve(root)), resolve(tmpdir()));
+    assert(basename(root).startsWith("flow-release-test-"));
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 it("only submits automatic releases for an opted-in version increase on main", () => {
   const base = {

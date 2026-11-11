@@ -5,6 +5,13 @@ which version is currently published; a changelog entry does not mean approval.
 
 ## [Unreleased]
 
+- Simplify navigation with a collapsible Menu and consistent page headings.
+- Unify task selection, rename the default task to General, and clarify timer,
+  settings, notification, and empty-state wording.
+- Show the installed extension version in Settings.
+- Validate the reviewed GitHub setup policy before sending it to GitHub and reject
+  authenticated API redirects.
+
 ## [1.1.0]
 
 - Remove blur from the blocking overlay; use neutral dimming and a solid panel.

@@ -5,6 +5,9 @@ focus statistics.
 
 ## A look inside Flow
 
+[Watch the narrated promo](assets/video/flow-promo-narrated-1920x1080.mp4)
+or the [silent version](assets/video/flow-promo-1280x720.mp4).
+
 The current interface, captured from the extension with illustrative task and
 history data. Click an image to view it at full resolution.
 
