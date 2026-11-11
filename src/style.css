@@ -18,8 +18,16 @@
   --selection-muted: #f1e9ff;
   --timer-top: #fffefa;
   --timer-bottom: #f3edf7;
+  --timer-hover-top: #ffffff;
+  --timer-hover-bottom: #faf6fc;
+  --timer-border: #fffefa;
+  --timer-glint: #fff9;
+  --summary-ink: #49345d;
+  --summary-muted: #755c79;
+  --canvas-wash: #ffdfc466;
   --timer-ink: #49375f;
   --timer-muted: #6d5a80;
+  --timer-hint-ink: #353968;
   --action-bg: #ffd6b1;
   --action-hover: #ffe4ca;
   --action-ink: #49345d;
@@ -129,7 +137,8 @@ main {
   width: 300px;
   min-height: 0;
   padding: 20px 24px 24px;
-  background: radial-gradient(ellipse at 50% 0%, #ffdfc466, transparent 70%), var(--bg);
+  background:
+    radial-gradient(ellipse at 50% 0%, var(--canvas-wash), transparent 70%), var(--bg);
 }
 .liquid-background {
   position: absolute;
@@ -302,9 +311,9 @@ h1 > span {
   border-radius: 28px;
   background: linear-gradient(145deg, var(--timer-top), var(--timer-bottom));
   color: var(--timer-ink);
-  border: 1px solid #fffefa;
+  border: 1px solid var(--timer-border);
   box-shadow:
-    inset 0 1px 0 #fff9,
+    inset 0 1px 0 var(--timer-glint),
     0 8px 20px #58406f1a;
   transition:
     transform 420ms var(--motion-spring),
@@ -313,10 +322,10 @@ h1 > span {
     background var(--motion-duration) var(--motion-ease);
 }
 .timer-start:hover:not(:disabled) {
-  background: linear-gradient(145deg, #ffffff, #faf6fc);
+  background: linear-gradient(145deg, var(--timer-hover-top), var(--timer-hover-bottom));
   transform: translateY(-2px);
   box-shadow:
-    inset 0 1px 0 #fffb,
+    inset 0 1px 0 var(--timer-glint),
     0 12px 24px #58406f24;
 }
 .timer-start:active:not(:disabled) {
@@ -324,7 +333,7 @@ h1 > span {
   border-radius: 38px;
   transition-duration: 100ms;
   box-shadow:
-    inset 0 1px 0 #fff9,
+    inset 0 1px 0 var(--timer-glint),
     0 3px 10px #58406f1a;
 }
 .timer-start:disabled {
@@ -346,7 +355,7 @@ h1 > span {
   margin-top: 16px;
   font-size: 12px;
   font-weight: 600;
-  color: #353968;
+  color: var(--timer-hint-ink);
   background: var(--timer-top);
   border-radius: 24px;
   padding: 8px 13px;
@@ -744,8 +753,8 @@ footer button {
 .today-card {
   padding: 18px;
   border-radius: 24px;
-  background: linear-gradient(135deg, #fffefa, #f3edf7);
-  color: #49345d;
+  background: linear-gradient(135deg, var(--timer-top), var(--timer-bottom));
+  color: var(--summary-ink);
   margin-bottom: 12px;
 }
 .today-card > span {
@@ -767,7 +776,7 @@ footer button {
   margin: 0;
   font-size: 11px;
   line-height: 1.5;
-  color: #755c79;
+  color: var(--summary-muted);
 }
 .metric-cards {
   display: grid;
@@ -1489,6 +1498,21 @@ footer button {
   --line: #5a496f;
   --accent: #e5baff;
   --soft: #4c3b64;
+  --timer-top: #453657;
+  --timer-bottom: #382c4b;
+  --timer-hover-top: #514064;
+  --timer-hover-bottom: #443355;
+  --timer-border: #6a527e;
+  --timer-glint: #ffffff0d;
+  --timer-ink: #f7efff;
+  --timer-muted: #d2c2e6;
+  --timer-hint-ink: #f7efff;
+  --summary-ink: #f7efff;
+  --summary-muted: #d2c2e6;
+  --canvas-wash: #7052b51a;
+  --action-bg: #68465b;
+  --action-hover: #78546a;
+  --action-ink: #fff1e8;
   color: var(--ink);
   background: var(--bg);
   color-scheme: dark;
@@ -1503,6 +1527,21 @@ footer button {
     --line: #5a496f;
     --accent: #e5baff;
     --soft: #4c3b64;
+    --timer-top: #453657;
+    --timer-bottom: #382c4b;
+    --timer-hover-top: #514064;
+    --timer-hover-bottom: #443355;
+    --timer-border: #6a527e;
+    --timer-glint: #ffffff0d;
+    --timer-ink: #f7efff;
+    --timer-muted: #d2c2e6;
+    --timer-hint-ink: #f7efff;
+    --summary-ink: #f7efff;
+    --summary-muted: #d2c2e6;
+    --canvas-wash: #7052b51a;
+    --action-bg: #68465b;
+    --action-hover: #78546a;
+    --action-ink: #fff1e8;
     color: var(--ink);
     background: var(--bg);
     color-scheme: dark;

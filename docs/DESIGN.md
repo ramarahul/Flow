@@ -65,7 +65,7 @@ Use colors by role, not by choosing a new shade for each screen.
 | Warm action text | `--action-ink`                          | `#49345d`             | Text on those warm controls                |
 
 The warm accent is already part of existing save/session controls. Do not spread it
-to every card, task action, or chart. The timer stays ivory. Ordinary Add task and
+to every card, task action, or chart. The light-theme timer stays ivory. Ordinary Add task and
 Edit task actions use the surface/accent roles, not a new dominant color.
 
 Only the timer, selected task, and existing Today summary use subtle gradients.
@@ -88,8 +88,14 @@ media query. Keep these two overrides synchronized.
 | `--soft`    | `#4c3b64`       |
 | `--danger`  | `#ffc4b7`       |
 
-Ivory timer surfaces retain their own dark text. Selected violet surfaces retain
-their own white text. Do not inherit the dark-theme body text on a light hero card.
+In dark appearance, the timer and Today summary use deep plum gradients
+(`#453657` to `#382c4b`) with pale text (`#f7efff`) and muted lavender captions
+(`#d2c2e6`). Hover uses `#514064` to `#443355`; borders use `#6a527e` and the
+inset highlight stays faint. Warm actions use muted rose-plum (`#68465b`, hover
+`#78546a`) with pale warm text. The canvas wash is a faint violet, not peach.
+Apply these roles to explicit dark and system-dark equally, including hover and
+press states. Never leave large white or ivory cards in dark mode. Selected
+violet surfaces retain white text. Light appearance keeps its existing palette.
 
 ## Typography and spacing
 
