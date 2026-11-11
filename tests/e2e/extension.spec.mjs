@@ -121,7 +121,7 @@ test("keeps timer and statistics surfaces dark in explicit and system dark modes
 async function task(page, name, target = 2) {
   await page.getByRole("button", { name: /Select task/ }).click();
   await expect(
-    page.getByRole("heading", { name: "Your tasks", exact: true }),
+    page.getByRole("heading", { name: "Your Tasks", exact: true }),
   ).toBeVisible();
   await expect(page.locator('.app-menu button[aria-current="page"]')).toHaveText("Tasks");
   await page.getByRole("button", { name: "Add task", exact: true }).click();
@@ -184,7 +184,7 @@ test("loads the real extension and persists a single-button home preference", as
   await expect(page.locator("header .brand")).toHaveCount(0);
   await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
   await expect(
-    page.getByRole("heading", { name: "Your tasks", exact: true }),
+    page.getByRole("heading", { name: "Your Tasks", exact: true }),
   ).toBeVisible();
   await expect(page.locator(".back-home, .back")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("tasks-navigation.png") });
@@ -640,6 +640,6 @@ test("browses saved graph periods and expands older session history", async ({
   await page
     .locator(".week-card")
     .screenshot({ path: testInfo.outputPath("day-statistics.png") });
-  await page.getByRole("heading", { name: "Your focus" }).scrollIntoViewIfNeeded();
+  await page.getByRole("heading", { name: "Your Focus" }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath("statistics.png"), fullPage: true });
 });

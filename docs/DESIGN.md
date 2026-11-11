@@ -28,7 +28,9 @@ technical terms such as “focus target”, and decorative dashes in headings.
 Keep labels consistent across the popup, notifications, and blocked websites.
 Show the installed version in the Settings footer using
 `chrome.runtime.getManifest().version`; never hardcode it.
-The timer invitation says “Find your flow”; its action says “Start timer”.
+The timer invitation says “Get into flow”; its action says “Start timer”.
+Settings labels say “Default focus duration” and “Default break duration” so
+people understand these values apply to future sessions.
 The default task is “General”. Its supporting text shows time recorded today. Use “Add task”
 for creation. Do not add instructions about editing tasks; the pencil's tooltip
 and accessible name explain its action.
@@ -36,7 +38,7 @@ and accessible name explain its action.
 Use one labeled Menu disclosure for Timer, Tasks, Statistics, and Settings.
 Keep it closed initially and close it on selection, Escape, and outside clicks.
 Show the Flow wordmark only on the timer. Secondary pages use their title in
-the same header position: Your tasks, Your focus, and Your Flow (Settings).
+the same header position: Your Tasks, Your Focus, and Your Flow (Settings).
 Do not stack a page title beneath the wordmark or introduce a large back bar.
 Both task entry points open the same screen. The task editor alone has a compact
 Back to tasks control and a secondary heading. Empty statistics describe the
