@@ -157,7 +157,7 @@ function App() {
                   onClick={() => void send({ type: "start", minutes: selectedMinutes })}
                   aria-label={`Start ${selectedMinutes} minute timer`}
                 >
-                  <span className="timer-label">GET INTO FLOW</span>
+                  <span className="timer-label">GET FLOWING</span>
                   <span className="digits">{clock(selectedMinutes * 60000)}</span>
                   <span className="start-hint">
                     <Play size={13} fill="currentColor" /> Start timer

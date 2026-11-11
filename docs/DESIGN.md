@@ -28,7 +28,7 @@ technical terms such as “focus target”, and decorative dashes in headings.
 Keep labels consistent across the popup, notifications, and blocked websites.
 Show the installed version in the Settings footer using
 `chrome.runtime.getManifest().version`; never hardcode it.
-The timer invitation says “Get into flow”; its action says “Start timer”.
+The timer invitation says “Get Flowing”; its action says “Start timer”.
 Settings labels say “Default focus duration” and “Default break duration” so
 people understand these values apply to future sessions.
 The default task is “General”. Its supporting text shows time recorded today. Use “Add task”
