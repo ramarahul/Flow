@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Flow - Focus timer",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Stay in your flow. Seamless focus sessions, manual breaks, and private local statistics.",
   "minimum_chrome_version": "120",
   "permissions": [
