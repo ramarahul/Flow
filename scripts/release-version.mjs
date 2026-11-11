@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { appendFile, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { automaticReleaseNotes } from "./release-notes.mjs";
 
 export function versionParts(value) {
   assert(
@@ -24,7 +25,12 @@ export function compareVersions(left, right) {
     if (a[index] !== b[index]) return Math.sign(a[index] - b[index]);
   return 0;
 }
-export async function prepareVersion(change, root = process.cwd(), summary = "") {
+export async function prepareVersion(
+  change,
+  root = process.cwd(),
+  summary = "",
+  autoNotes = false,
+) {
   assert(
     typeof summary === "string" && summary.length <= 10000,
     "Release summary must be text, at most 10000 characters",
@@ -62,12 +68,13 @@ export async function prepareVersion(change, root = process.cwd(), summary = "")
     contents[3],
   );
   assert(match, "CHANGELOG.md must contain ## [Unreleased]");
-  const notes = [
-    summary.trim() ? `- ${summary.trim().replace(/\r?\n/g, "\n  ")}` : "",
-    match[2].trim(),
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  const notes =
+    [
+      summary.trim() ? `- ${summary.trim().replace(/\r?\n/g, "\n  ")}` : "",
+      match[2].trim(),
+    ]
+      .filter(Boolean)
+      .join("\n\n") || (autoNotes ? automaticReleaseNotes(root, pkg.version) : "");
   assert(
     notes,
     "Enter a release summary in the GitHub form or add release notes below ## [Unreleased] in CHANGELOG.md",
@@ -96,6 +103,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
       process.argv[2],
       process.cwd(),
       process.env.RELEASE_NOTES ?? "",
+      process.env.RELEASE_AUTO_NOTES === "true",
     );
     if (process.env.GITHUB_OUTPUT)
       await appendFile(process.env.GITHUB_OUTPUT, `version=${version}\n`);

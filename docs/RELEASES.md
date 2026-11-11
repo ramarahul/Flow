@@ -26,8 +26,11 @@ by GitHub for dependency updates; it is not another release step.
 After this workflow is merged to main, open **Actions → Release Flow →
 Run workflow** and choose **main**. Select **bug-fix** for the next patch version,
 or **feature** for the next minor version. You do not need to enter a version.
-Optionally enter a short summary; otherwise the workflow uses the existing
-Unreleased changelog notes. If both are empty, enter a summary in the form and rerun.
+You can leave the summary blank. Existing Unreleased notes are used when present;
+otherwise the workflow generates notes from merged PR titles and commits since
+the current version was prepared. Later changes to package scripts do not reset
+that boundary. An optional summary takes precedence over automatic notes.
+Review generated notes in the release PR; no manual changelog entry is required.
 
 The workflow updates all four release files, formats them, creates or updates
 `release/vVERSION`, opens a release PR, and explicitly starts CI. Follow the PR

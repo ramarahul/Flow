@@ -153,7 +153,7 @@ mocked HTTP requests.
 ## Release a version
 
 The easiest path is **Actions → Release Flow → Run workflow → main**.
-Choose **bug-fix** or **feature**, optionally add a short summary, and follow the
+Choose **bug-fix** or **feature** and follow the
 generated release PR. Version synchronization, formatting, and CI dispatch are
 automatic. Merge after checks pass, then approve the existing publishing job
 if `CWS_AUTO_RELEASE=true` is enabled. Otherwise use the manual release path below.

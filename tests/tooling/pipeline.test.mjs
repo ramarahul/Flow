@@ -164,6 +164,7 @@ it("prepares release PRs from main without publishing credentials or bypassing C
   const text = await readFile(".github/workflows/prepare-release.yml", "utf8");
   const workflow = parse(text);
   assert.equal(workflow.name, "Release Flow");
+  assert.equal(workflow.on.workflow_dispatch.inputs.notes.required, false);
   assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
   assert.deepEqual(workflow.on.workflow_dispatch.inputs.change.options, [
     "bug-fix",
@@ -181,6 +182,11 @@ it("prepares release PRs from main without publishing credentials or bypassing C
   const steps = workflow.jobs.prepare.steps;
   assert.equal(steps[0].with.ref, "main");
   assert.equal(steps[0].with["persist-credentials"], false);
+  assert.equal(steps[0].with["fetch-depth"], 0);
+  assert.equal(
+    steps.find((step) => step.id === "version").env.RELEASE_AUTO_NOTES,
+    "true",
+  );
   assert(steps.some((step) => step.run === "npm ci --ignore-scripts"));
   const pr = steps.find((step) => step.id === "pr");
   assert.equal(pr.with.base, "main");
