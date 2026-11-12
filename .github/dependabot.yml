@@ -6,23 +6,26 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     groups:
-      react:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+      security-minor-and-patch:
+        applies-to: security-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+      react-major:
+        update-types: [major]
         patterns:
           - react
           - react-dom
           - "@types/react"
           - "@types/react-dom"
-    ignore:
-      - dependency-name: react
-        update-types: [version-update:semver-major]
-      - dependency-name: react-dom
-        update-types: [version-update:semver-major]
-      - dependency-name: "@types/react"
-        update-types: [version-update:semver-major]
-      - dependency-name: "@types/react-dom"
-        update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]

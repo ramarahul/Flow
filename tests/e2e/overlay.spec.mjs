@@ -1,6 +1,6 @@
 import { test, expect, chromium } from "@playwright/test";
 import { readFile } from "node:fs/promises";
-import { transformWithEsbuild } from "vite";
+import { transformWithOxc } from "vite";
 
 test("locks document and nested scrolling while the warning is open, then restores the page", async () => {
   const browser = await chromium.launch();
@@ -49,10 +49,10 @@ test("locks document and nested scrolling while the warning is open, then restor
         },
       });
     });
-    const { code: source } = await transformWithEsbuild(
+    const { code: source } = await transformWithOxc(
       await readFile(new URL("../../src/overlay.ts", import.meta.url), "utf8"),
       "overlay.ts",
-      { target: "es2022", format: "esm" },
+      { target: "es2022" },
     );
     await page.addScriptTag({
       type: "module",
