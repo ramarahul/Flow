@@ -4,6 +4,28 @@ import { readFile } from "node:fs/promises";
 import { parse } from "yaml";
 import { approvedRuleset } from "../../scripts/github-ruleset.mjs";
 
+it("keeps React runtime and type updates compatible and grouped", async () => {
+  const manifest = JSON.parse(await readFile("package.json", "utf8"));
+  const lock = JSON.parse(await readFile("package-lock.json", "utf8"));
+  const config = parse(await readFile(".github/dependabot.yml", "utf8"));
+  const npm = config.updates.find((update) => update["package-ecosystem"] === "npm");
+  const packages = ["react", "react-dom", "@types/react", "@types/react-dom"];
+  const major = lock.packages["node_modules/react"].version.split(".")[0];
+  for (const name of packages) {
+    assert.equal(lock.packages[`node_modules/${name}`].version.split(".")[0], major);
+    const section = name.startsWith("@types/") ? "devDependencies" : "dependencies";
+    assert.equal(lock.packages[""][section][name], manifest[section][name]);
+    assert(npm.groups.react.patterns.includes(name));
+    assert(
+      npm.ignore.some(
+        (rule) =>
+          rule["dependency-name"] === name &&
+          rule["update-types"].includes("version-update:semver-major"),
+      ),
+    );
+  }
+});
+
 it("sends only the reviewed setup policy and rejects extra file data or weakened protections", async () => {
   const raw = JSON.parse(await readFile(".github/main-ruleset.json", "utf8"));
   const approved = approvedRuleset(raw);
