@@ -62,9 +62,12 @@ async function sync(d: Data) {
     addRules: rules,
   });
   if (permitted) await blockOpenTabs(d);
+  const { flowCompletion } = await chrome.storage.local.get("flowCompletion");
+  const completed = flowCompletion === true;
   await chrome.action.setBadgeText({
-    text:
-      t.mode === "break"
+    text: completed
+      ? "✓"
+      : t.mode === "break"
         ? "II"
         : t.mode === "focus"
           ? t.paused
@@ -75,17 +78,28 @@ async function sync(d: Data) {
           : "",
   });
   await chrome.action.setBadgeBackgroundColor({ color: "#8060b9" });
+  await chrome.action.setTitle({ title: completed ? "Flow: Focus complete" : "Flow" });
 }
 async function run(
   action: Action,
   fromBlockedPage: boolean,
   expectedNotification?: string,
   sourceUrl?: string,
+  popupOpened = false,
 ) {
   const original = await read();
   const now = Date.now();
   const ticked = reduce(original, { type: "tick" }, now);
   const caught = reduce(ticked, { type: "completeTarget" }, now);
+  let completed =
+    (await chrome.storage.local.get("flowCompletion")).flowCompletion === true;
+  if (
+    original.timer.mode === "focus" &&
+    !original.timer.paused &&
+    original.timer.completedAt === undefined &&
+    remaining(original.timer, now) <= 0
+  )
+    completed = true;
   const breakFinished =
     original.timer.mode === "break" &&
     !original.timer.paused &&
@@ -100,7 +114,7 @@ async function run(
       remaining(caught.timer, now) > 0 ||
       notificationId(caught) !== expectedNotification)
   ) {
-    await chrome.storage.local.set({ flow: caught });
+    await chrome.storage.local.set({ flow: caught, flowCompletion: completed });
     await sync(caught);
     return caught;
   }
@@ -111,8 +125,22 @@ async function run(
     fromBlockedPage || (!!sourceUrl && shouldBlock(caught, sourceUrl)),
   );
   const next = reduce(caught, action, now, crypto.randomUUID());
+  if (
+    popupOpened ||
+    [
+      "start",
+      "repeat",
+      "takeBreak",
+      "break",
+      "extend",
+      "finish",
+      "reset",
+      "import",
+    ].includes(action.type)
+  )
+    completed = false;
   // Persist the notification marker before invoking external effects: no duplicate alerts after wake/restart.
-  await chrome.storage.local.set({ flow: next });
+  await chrome.storage.local.set({ flow: next, flowCompletion: completed });
   await sync(next);
   if (original.timer.mode === "focus" && next.timer.mode === "idle")
     await dismissNotification(notificationId(original));
@@ -153,9 +181,10 @@ function enqueue(
   fromBlockedPage = false,
   expectedNotification?: string,
   sourceUrl?: string,
+  popupOpened = false,
 ) {
   const result = queue.then(() =>
-    run(action, fromBlockedPage, expectedNotification, sourceUrl),
+    run(action, fromBlockedPage, expectedNotification, sourceUrl, popupOpened),
   );
   queue = result.catch((error) => console.error("Flow operation failed", error));
   return result;
@@ -176,6 +205,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     fromBlockedPage,
     undefined,
     sender.tab ? sender.url : undefined,
+    message.popupOpened === true && sender.url === chrome.runtime.getURL("index.html"),
   ).then(
     (data) => respond({ data }),
     (error) =>

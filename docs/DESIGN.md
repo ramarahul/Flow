@@ -215,6 +215,13 @@ protection, partial-time interruption, and automatic removal at the focus target
 
 ### States and feedback
 
+The toolbar icon shows a persistent **checkmark** badge after focus ends, even after
+the notification closes or the session returns home. Opening the popup or taking
+a new session action acknowledges it. Persist this state locally across worker
+restarts, independently of notification preferences. Set the toolbar tooltip to
+“Flow: Focus complete” while the badge is shown; restore “Flow” when cleared.
+No blinking, new permissions, or full-screen interruptions.
+
 Give icon-only controls native hover titles and accessible names; do not rely on
 the icon alone. Native titles avoid clipping tooltips inside scroll containers.
 Keep vertical scrollbars thin, with rounded thumbs using the existing divider and

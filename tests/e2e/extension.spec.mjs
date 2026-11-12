@@ -335,6 +335,19 @@ test("returns home without adding focus time when the completion window expires"
   const saved = await stored(worker);
   expect(saved.history).toHaveLength(1);
   expect(saved.history[0].focusMs).toBe(600000);
+  expect(await worker.evaluate(() => chrome.action.getBadgeText({}))).toBe("✓");
+  expect(await worker.evaluate(() => chrome.action.getTitle({}))).toBe(
+    "Flow: Focus complete",
+  );
+  expect(
+    await worker.evaluate(
+      async () => (await chrome.storage.local.get("flowCompletion")).flowCompletion,
+    ),
+  ).toBe(true);
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Start 10 minute timer" })).toBeVisible();
+  await expect.poll(() => worker.evaluate(() => chrome.action.getBadgeText({}))).toBe("");
+  expect((await stored(worker)).history).toHaveLength(1);
 });
 
 test("deletes a task with confirmation and retains the permanent default", async ({
