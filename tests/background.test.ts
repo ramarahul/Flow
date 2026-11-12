@@ -4,12 +4,15 @@ import { webcrypto } from "node:crypto";
 import { defaults, type Action, type Data } from "../src/domain.js";
 
 type Listener = (
-  message: { action: Action },
+  message: { action: Action; popupOpened?: boolean },
   sender: { id: string; url: string; tab?: { id: number } },
   respond: (value: { data?: Data; error?: string }) => void,
 ) => unknown;
 let listener: Listener;
 let stored = defaults();
+let completion = false;
+let badge = "";
+let badgeTitle = "";
 const nativeNow = Date.now;
 let testNow = +new Date(2026, 10, 9, 12);
 Date.now = () => testNow;
@@ -64,10 +67,11 @@ const mock = {
   },
   storage: {
     local: {
-      get: async () => ({ flow: structuredClone(stored) }),
-      set: async (value: { flow: Data }) => {
+      get: async () => ({ flow: structuredClone(stored), flowCompletion: completion }),
+      set: async (value: { flow: Data; flowCompletion?: boolean }) => {
         if (failWrite) throw new Error("Storage unavailable");
         stored = structuredClone(value.flow);
+        if (value.flowCompletion !== undefined) completion = value.flowCompletion;
       },
     },
   },
@@ -94,8 +98,13 @@ const mock = {
     },
   },
   action: {
-    setBadgeText: async () => {},
+    setBadgeText: async ({ text }: { text: string }) => {
+      badge = text;
+    },
     setBadgeBackgroundColor: async () => {},
+    setTitle: async ({ title }: { title: string }) => {
+      badgeTitle = title;
+    },
   },
   notifications: {
     getAll: (callback: (notices: { [id: string]: boolean }) => void) =>
@@ -119,10 +128,10 @@ const mock = {
     },
   },
 };
-const send = (action: Action, blockedPage = false) =>
+const send = (action: Action, blockedPage = false, popupOpened = false) =>
   new Promise<{ data?: Data; error?: string }>((resolve) =>
     listener(
-      { action },
+      { action, popupOpened },
       {
         id: "test-flow",
         url: mock.runtime.getURL(blockedPage ? "blocked.html" : "index.html"),
@@ -142,6 +151,45 @@ const send = (action: Action, blockedPage = false) =>
   await import("../src/background.js");
 }
 describe("background orchestration with mocked Chrome APIs", () => {
+  it("keeps a completion badge after the notification window and clears it only when acknowledged", async () => {
+    await send({ type: "start", minutes: 1 });
+    advance(65000);
+    await send({ type: "tick" });
+    assert.equal(badge, "✓");
+    assert.equal(badgeTitle, "Flow: Focus complete");
+    advance(60000);
+    await send({ type: "tick" });
+    assert.equal(stored.timer.mode, "idle");
+    assert.equal(completion, true);
+    assert.equal(badge, "✓");
+    await send({ type: "settings", settings: { sound: true } });
+    assert.equal(badge, "✓");
+    // A website overlay cannot pretend that the popup was opened.
+    await send({ type: "tick" }, true, true);
+    assert.equal(badge, "✓");
+    await send({ type: "tick" }, false, true);
+    assert.equal(completion, false);
+    assert.equal(badge, "");
+    assert.equal(badgeTitle, "Flow");
+    await send({ type: "tick" });
+    assert.equal(badge, "");
+  });
+
+  it("shows a badge even after a late wake with notifications off and clears it for a new session", async () => {
+    await send({ type: "settings", settings: { notifications: false } });
+    await send({ type: "start", minutes: 1 });
+    advance(10 * 60000);
+    await send({ type: "tick" });
+    assert.equal(stored.timer.mode, "idle");
+    assert.equal(badge, "✓");
+    assert.equal(notifications, 0);
+    assert.equal(stored.history[0].focusMs, 60000);
+    await send({ type: "start", minutes: 1 });
+    assert.equal(badge, "");
+    await send({ type: "pause" }, true);
+    assert.equal(badge, "");
+  });
+
   it("stops at the target, returns home after the action window, and ignores a late repeat", async () => {
     await send({ type: "start", minutes: 1 });
     const started = testNow;
@@ -180,6 +228,9 @@ describe("background orchestration with mocked Chrome APIs", () => {
   beforeEach(() => {
     testNow = +new Date(2026, 10, 9, 12);
     stored = defaults();
+    completion = false;
+    badge = "";
+    badgeTitle = "";
     rules = [];
     notifications = 0;
     latestNotice = undefined;

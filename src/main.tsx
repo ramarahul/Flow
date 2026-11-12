@@ -36,13 +36,13 @@ function App() {
     [customDuration, setCustomDuration] = useState(false),
     [host, setHost] = useState(""),
     [confirmReset, setConfirmReset] = useState(false);
-  const send = async (action: Action) => {
+  const send = async (action: Action, popupOpened = false) => {
     setBusy(true);
     setError("");
     try {
       if (!chrome.runtime?.id)
         throw new Error("Load the production build as a Chrome extension to use Flow.");
-      const response = await chrome.runtime.sendMessage({ action });
+      const response = await chrome.runtime.sendMessage({ action, popupOpened });
       if (response.error) throw new Error(response.error);
       setData(response.data);
       return response.data as Data;
@@ -53,7 +53,7 @@ function App() {
     }
   };
   useEffect(() => {
-    void send({ type: "tick" }).then((d) => {
+    void send({ type: "tick" }, true).then((d) => {
       if (d) {
         setMinutes(d.settings.focus);
       }

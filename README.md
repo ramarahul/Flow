@@ -63,6 +63,9 @@ is the permanent default and cannot be deleted.
 
 Notifications and their action buttons depend on Chrome and operating-system
 settings. Deadline recovery runs when Chrome resumes after being closed or asleep.
+If you miss a completion notification, a **checkmark** badge stays on Flow's toolbar
+icon until you open Flow or start another session. Pin Flow to the toolbar to
+keep it visible. This badge works even when notification banners are disabled.
 
 ## Privacy
 
