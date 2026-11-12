@@ -25,7 +25,7 @@ let failWrite = false;
 let notifications = 0;
 let notificationButton: (id: string, index: number) => void;
 let latestNotice:
-  { id: string; options: chrome.notifications.NotificationOptions<true> } | undefined;
+  { id: string; options: chrome.notifications.NotificationOptions } | undefined;
 let clearedNotices: string[] = [];
 let openTabs: chrome.tabs.Tab[] = [];
 let overlaidTabs: number[] = [];
@@ -118,10 +118,7 @@ const mock = {
       clearedNotices.push(id);
       return true;
     },
-    create: async (
-      id: string,
-      options: chrome.notifications.NotificationOptions<true>,
-    ) => {
+    create: async (id: string, options: chrome.notifications.NotificationOptions) => {
       notifications++;
       latestNotice = { id, options };
       return id;
@@ -569,7 +566,9 @@ describe("background orchestration with mocked Chrome APIs", () => {
     assert.equal(stored.timer.mode, "idle");
     assert.equal(stored.history.length, 1);
     assert.equal(stored.history[0].breakMs, 60000);
-    assert.match(latestNotice!.options.title, /Break complete/);
+    const title = latestNotice?.options.title;
+    assert.ok(title);
+    assert.match(title, /Break complete/);
     const notices = notifications;
     await send({ type: "tick" });
     assert.equal(notifications, notices);

@@ -24,8 +24,12 @@ function Blocked() {
         if (r.data) accept(r.data);
       })
       .catch(() => setStatus("Open Flow from your toolbar to manage your session."));
-    const listener = (changes: { [key: string]: chrome.storage.StorageChange }) => {
-      if (changes.flow?.newValue) accept(changes.flow.newValue);
+    const listener = (
+      changes: { [key: string]: chrome.storage.StorageChange },
+      area: string,
+    ) => {
+      if (area === "local" && changes.flow?.newValue)
+        accept(changes.flow.newValue as Data);
     };
     chrome.storage.onChanged.addListener(listener);
     return () => chrome.storage.onChanged.removeListener(listener);
