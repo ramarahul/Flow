@@ -1,6 +1,6 @@
 import { test, expect, chromium } from "@playwright/test";
 import { readFile } from "node:fs/promises";
-import ts from "typescript";
+import { transformWithEsbuild } from "vite";
 
 test("locks document and nested scrolling while the warning is open, then restores the page", async () => {
   const browser = await chromium.launch();
@@ -49,12 +49,11 @@ test("locks document and nested scrolling while the warning is open, then restor
         },
       });
     });
-    const source = ts.transpileModule(
+    const { code: source } = await transformWithEsbuild(
       await readFile(new URL("../../src/overlay.ts", import.meta.url), "utf8"),
-      {
-        compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
-      },
-    ).outputText;
+      "overlay.ts",
+      { target: "es2022", format: "esm" },
+    );
     await page.addScriptTag({
       type: "module",
       content: `${source}\nawait installFocusOverlay(); window.overlayReady = true;`,
