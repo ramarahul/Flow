@@ -50,10 +50,78 @@ async function navigate(page, name) {
   await page.getByRole("button", { name, exact: true }).click();
 }
 
+test("keeps timer and statistics surfaces dark in explicit and system dark modes", async ({
+  extension,
+}, testInfo) => {
+  const { page } = extension;
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  const surface = (locator) =>
+    locator.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const colors = [
+        ...style.backgroundImage.matchAll(/rgba?\((\d+), (\d+), (\d+)/g),
+      ].map((match) => match.slice(1).map(Number));
+      if (!colors.length)
+        colors.push(style.backgroundColor.match(/\d+/g).slice(0, 3).map(Number));
+      const text = style.color.match(/\d+/g).slice(0, 3).map(Number);
+      const luminance = (rgb) =>
+        rgb
+          .map((value) => {
+            const c = value / 255;
+            return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+          })
+          .reduce(
+            (sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index],
+            0,
+          );
+      return {
+        colors,
+        contrast: colors.map(
+          (color) => (luminance(text) + 0.05) / (luminance(color) + 0.05),
+        ),
+      };
+    });
+  for (const theme of ["dark", "system"]) {
+    await command(page, { type: "settings", settings: { theme } });
+    await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+    const timer = page.locator(".timer-start");
+    for (const hovered of [false, true]) {
+      if (hovered) await timer.hover();
+      else await page.mouse.move(299, 649);
+      const appearance = await surface(timer);
+      expect(appearance.colors).toHaveLength(2);
+      expect(
+        appearance.colors.every((rgb) => rgb.every((channel) => channel < 120)),
+      ).toBe(true);
+      expect(Math.min(...appearance.contrast)).toBeGreaterThan(4.5);
+    }
+    expect(
+      Math.min(...(await surface(page.locator(".start-hint"))).contrast),
+    ).toBeGreaterThan(4.5);
+    await page.screenshot({ path: testInfo.outputPath(`home-${theme}.png`) });
+    await navigate(page, "Statistics");
+    const summary = await surface(page.locator(".today-card"));
+    expect(summary.colors.every((rgb) => rgb.every((channel) => channel < 120))).toBe(
+      true,
+    );
+    expect(Math.min(...summary.contrast)).toBeGreaterThan(4.5);
+    await page.screenshot({ path: testInfo.outputPath(`statistics-${theme}.png`) });
+    await navigate(page, "Timer");
+  }
+  await command(page, { type: "settings", settings: { theme: "light" } });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.mouse.move(299, 649);
+  expect(
+    (await surface(page.locator(".timer-start"))).colors.every((rgb) =>
+      rgb.every((channel) => channel > 230),
+    ),
+  ).toBe(true);
+});
+
 async function task(page, name, target = 2) {
   await page.getByRole("button", { name: /Select task/ }).click();
   await expect(
-    page.getByRole("heading", { name: "Your tasks", exact: true }),
+    page.getByRole("heading", { name: "Your Tasks", exact: true }),
   ).toBeVisible();
   await expect(page.locator('.app-menu button[aria-current="page"]')).toHaveText("Tasks");
   await page.getByRole("button", { name: "Add task", exact: true }).click();
@@ -116,7 +184,7 @@ test("loads the real extension and persists a single-button home preference", as
   await expect(page.locator("header .brand")).toHaveCount(0);
   await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
   await expect(
-    page.getByRole("heading", { name: "Your tasks", exact: true }),
+    page.getByRole("heading", { name: "Your Tasks", exact: true }),
   ).toBeVisible();
   await expect(page.locator(".back-home, .back")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("tasks-navigation.png") });
@@ -572,6 +640,6 @@ test("browses saved graph periods and expands older session history", async ({
   await page
     .locator(".week-card")
     .screenshot({ path: testInfo.outputPath("day-statistics.png") });
-  await page.getByRole("heading", { name: "Your focus" }).scrollIntoViewIfNeeded();
+  await page.getByRole("heading", { name: "Your Focus" }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath("statistics.png"), fullPage: true });
 });

@@ -5,8 +5,6 @@ which version is currently published; a changelog entry does not mean approval.
 
 ## [Unreleased]
 
-## [1.2.0]
-
 - Simplify navigation with a collapsible Menu and consistent page headings.
 - Unify task selection, rename the default task to General, and clarify timer,
   settings, notification, and empty-state wording.

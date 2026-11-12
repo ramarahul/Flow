@@ -45,9 +45,9 @@ export function AppHeader({
       ) : (
         <h1>
           {view === "tasks"
-            ? "Your tasks"
+            ? "Your Tasks"
             : view === "stats"
-              ? "Your focus"
+              ? "Your Focus"
               : "Your Flow"}
         </h1>
       )}

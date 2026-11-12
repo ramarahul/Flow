@@ -157,7 +157,7 @@ function App() {
                   onClick={() => void send({ type: "start", minutes: selectedMinutes })}
                   aria-label={`Start ${selectedMinutes} minute timer`}
                 >
-                  <span className="timer-label">FIND YOUR FLOW</span>
+                  <span className="timer-label">GET FLOWING</span>
                   <span className="digits">{clock(selectedMinutes * 60000)}</span>
                   <span className="start-hint">
                     <Play size={13} fill="currentColor" /> Start timer
@@ -257,7 +257,7 @@ function App() {
             <p className="subtitle">Set things up your way.</p>
             <div className="section-label">TIMER & APPEARANCE</div>
             <label className="setting">
-              Focus duration{" "}
+              Default focus duration{" "}
               <span>
                 <input
                   type="number"
@@ -274,7 +274,7 @@ function App() {
               </span>
             </label>
             <label className="setting">
-              Break duration{" "}
+              Default break duration{" "}
               <span>
                 <input
                   type="number"
