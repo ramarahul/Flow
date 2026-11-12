@@ -15,15 +15,26 @@ it("keeps React runtime and type updates compatible and grouped", async () => {
     assert.equal(lock.packages[`node_modules/${name}`].version.split(".")[0], major);
     const section = name.startsWith("@types/") ? "devDependencies" : "dependencies";
     assert.equal(lock.packages[""][section][name], manifest[section][name]);
-    assert(npm.groups.react.patterns.includes(name));
-    assert(
-      npm.ignore.some(
-        (rule) =>
-          rule["dependency-name"] === name &&
-          rule["update-types"].includes("version-update:semver-major"),
-      ),
-    );
+    assert(npm.groups["react-major"].patterns.includes(name));
   }
+  assert.deepEqual(npm.groups["react-major"]["update-types"], ["major"]);
+  assert.equal(npm.ignore, undefined);
+});
+
+it("groups routine dependency updates while keeping majors separate", async () => {
+  const config = parse(await readFile(".github/dependabot.yml", "utf8"));
+  for (const update of config.updates) {
+    assert.deepEqual(update.groups["minor-and-patch"], {
+      patterns: ["*"],
+      "update-types": ["minor", "patch"],
+    });
+  }
+  const npm = config.updates.find((update) => update["package-ecosystem"] === "npm");
+  assert.deepEqual(npm.groups["security-minor-and-patch"], {
+    "applies-to": "security-updates",
+    patterns: ["*"],
+    "update-types": ["minor", "patch"],
+  });
 });
 
 it("sends only the reviewed setup policy and rejects extra file data or weakened protections", async () => {
