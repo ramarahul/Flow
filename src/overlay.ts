@@ -239,7 +239,8 @@ export async function installFocusOverlay() {
     changes: { [key: string]: chrome.storage.StorageChange },
     area: string,
   ) => {
-    if (area === "local" && changes.flow?.newValue) update(changes.flow.newValue);
+    if (area === "local" && changes.flow?.newValue)
+      update(changes.flow.newValue as OverlayData);
   };
   chrome.storage.onChanged.addListener(listener);
   const refresh = () => {
@@ -248,7 +249,7 @@ export async function installFocusOverlay() {
   document.addEventListener("visibilitychange", refresh);
   window.addEventListener("pageshow", refresh);
   try {
-    const value = await chrome.storage.local.get("flow");
+    const value = await chrome.storage.local.get<{ flow?: OverlayData }>("flow");
     if (value.flow) update(value.flow);
   } catch (error) {
     scope.__flowOverlayInstalled = false;

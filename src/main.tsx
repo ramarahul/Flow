@@ -60,8 +60,12 @@ function App() {
       setLoaded(true);
     });
     const tick = window.setInterval(() => setNow(Date.now()), 250);
-    const listener = (changes: { [key: string]: chrome.storage.StorageChange }) => {
-      if (changes.flow) setData(changes.flow.newValue);
+    const listener = (
+      changes: { [key: string]: chrome.storage.StorageChange },
+      area: string,
+    ) => {
+      if (area === "local" && changes.flow?.newValue)
+        setData(changes.flow.newValue as Data);
     };
     chrome.storage?.onChanged.addListener(listener);
     return () => {
