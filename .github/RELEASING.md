@@ -27,6 +27,11 @@ review browser support before changing the runner OS.
 Actions are pinned to commit hashes; Dependabot proposes updates. No extension
 permission was added for this pipeline.
 
+Dependabot groups React, React DOM, and their TypeScript types into one PR.
+Routine updates stay within the current major version; React major upgrades are
+planned migrations so runtime and type packages can be upgraded and tested together.
+CI continues to enforce peer dependency compatibility with `npm ci`.
+
 ## One-time repository setup
 
 Workflow files alone cannot prevent merges. Push these files to GitHub and let CI
