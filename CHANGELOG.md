@@ -5,6 +5,10 @@ which version is currently published; a changelog entry does not mean approval.
 
 ## [Unreleased]
 
+## [1.2.2]
+
+- feat: add completion badge and title for focus sessions (#17)
+
 ## [1.2.1]
 
 - Simplify navigation with a collapsible Menu and consistent page headings.
