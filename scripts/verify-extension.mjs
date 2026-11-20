@@ -60,7 +60,7 @@ export async function verifyExtension(directory = "dist") {
   assert.equal(manifest.background.type, "module");
   const files = await bundleFiles(root);
   const allowed =
-    /^(?:manifest\.json|(?:index|blocked)\.html|(?:popup|blocked|background)\.js|icons\/(?:16|32|48|128)\.png|assets\/[\w.-]+\.(?:js|css|woff2?))$/;
+    /^(?:manifest\.json|(?:index|blocked|offscreen)\.html|(?:popup|blocked|background|offscreen)\.js|icons\/(?:(?:16|32|48|128)|running-(?:16|32))\.png|assets\/[\w.-]+\.(?:js|css|woff2?))$/;
   for (const file of files) {
     assert(allowed.test(file), `Unexpected packaged file: ${file}`);
     const content = await readFile(resolve(root, file));
@@ -81,6 +81,8 @@ export async function verifyExtension(directory = "dist") {
     "blocked.html",
     "popup.js",
     "blocked.js",
+    "offscreen.html",
+    "offscreen.js",
     ...Object.values(manifest.icons),
     ...Object.values(manifest.action.default_icon),
   ])

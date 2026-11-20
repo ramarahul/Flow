@@ -1,3 +1,4 @@
+import { playCompletionSound } from "./audio.js";
 import {
   defaults,
   migrate,
@@ -62,23 +63,31 @@ async function sync(d: Data) {
     addRules: rules,
   });
   if (permitted) await blockOpenTabs(d);
+  try {
+    await syncToolbar(d);
+  } catch (error) {
+    console.warn("Toolbar status unavailable", error);
+  }
+}
+async function syncToolbar(d: Data) {
+  const t = d.timer;
   const { flowCompletion } = await chrome.storage.local.get("flowCompletion");
   const completed = flowCompletion === true;
+  const running =
+    t.mode === "focus" && !!t.session && !t.paused && t.completedAt === undefined;
   await chrome.action.setBadgeText({
-    text: completed
-      ? "✓"
-      : t.mode === "break"
-        ? "II"
-        : t.mode === "focus"
-          ? t.paused
-            ? "II"
-            : remaining(t, Date.now()) <= 0
-              ? "+"
-              : ""
-          : "",
+    text: running || completed ? "" : t.mode === "break" || t.paused ? "II" : "",
+  });
+  await chrome.action.setIcon({
+    path: running
+      ? { 16: "icons/running-16.png", 32: "icons/running-32.png" }
+      : { 16: "icons/16.png", 32: "icons/32.png" },
   });
   await chrome.action.setBadgeBackgroundColor({ color: "#8060b9" });
-  await chrome.action.setTitle({ title: completed ? "Flow: Focus complete" : "Flow" });
+  await chrome.action.setBadgeTextColor({ color: "#ffffff" });
+  await chrome.action.setTitle({
+    title: running ? "Flow: Focus running" : completed ? "Flow: Focus complete" : "Flow",
+  });
 }
 async function run(
   action: Action,
@@ -88,13 +97,23 @@ async function run(
   popupOpened = false,
 ) {
   const original = await read();
+  if (action.type === "testSound") {
+    await playCompletionSound();
+    return original;
+  }
   const now = Date.now();
+  const targetJustReached =
+    (original.timer.mode === "focus" || original.timer.mode === "break") &&
+    !original.timer.paused &&
+    !original.timer.notified &&
+    remaining(original.timer, now) <= 0;
   const ticked = reduce(original, { type: "tick" }, now);
   const caught = reduce(ticked, { type: "completeTarget" }, now);
   let completed =
     (await chrome.storage.local.get("flowCompletion")).flowCompletion === true;
   if (
     original.timer.mode === "focus" &&
+    !original.timer.notified &&
     !original.timer.paused &&
     original.timer.completedAt === undefined &&
     remaining(original.timer, now) <= 0
@@ -144,6 +163,13 @@ async function run(
   await sync(next);
   if (original.timer.mode === "focus" && next.timer.mode === "idle")
     await dismissNotification(notificationId(original));
+  if (targetJustReached && next.settings.sound) {
+    try {
+      await playCompletionSound();
+    } catch (error) {
+      console.warn("Completion sound unavailable", error);
+    }
+  }
   if (
     (breakFinished ||
       (!original.timer.notified && caught.timer.notified && next.timer.notified)) &&
@@ -161,8 +187,10 @@ async function run(
         title: isBreak ? "Break complete" : "Focus complete",
         message: isBreak
           ? "Your focus time is saved. Open Flow when you are ready to start again."
-          : "Time well spent. Take a break or repeat within 30 seconds. Otherwise, Flow saves your session and returns home.",
-        silent: !next.settings.sound,
+          : caught.timer.keepCounting
+            ? "Target reached. Your focus keeps counting until you take a break or end the session."
+            : "Time well spent. Take a break or repeat within 30 seconds. Otherwise, Flow saves your session and returns home.",
+        silent: true,
         requireInteraction: false,
         ...(!isBreak
           ? {

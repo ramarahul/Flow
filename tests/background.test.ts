@@ -13,6 +13,7 @@ let stored = defaults();
 let completion = false;
 let badge = "";
 let badgeTitle = "";
+let toolbarIcon: Record<number, string> = {};
 const nativeNow = Date.now;
 let testNow = +new Date(2026, 10, 9, 12);
 Date.now = () => testNow;
@@ -23,12 +24,20 @@ let rules: chrome.declarativeNetRequest.Rule[] = [];
 let permitted = true;
 let failWrite = false;
 let notifications = 0;
+let sounds = 0;
+let offscreenOpen = false;
+let failSound = false;
+let failToolbar = false;
+let offscreenCreations = 0;
 let notificationButton: (id: string, index: number) => void;
 let latestNotice:
   { id: string; options: chrome.notifications.NotificationOptions } | undefined;
 let clearedNotices: string[] = [];
 let openTabs: chrome.tabs.Tab[] = [];
 let overlaidTabs: number[] = [];
+let overlayFailure: (() => void) | undefined;
+let redirectedTabs: number[] = [];
+let failRedirect = false;
 let tabUpdated: (id: number, change: { url?: string; status?: string }) => void;
 const alarms = new Map<string, { when: number }>();
 let alarmFired: (alarm: { name: string }) => void;
@@ -41,6 +50,14 @@ const mock = {
       if (!tab) throw new Error("Tab closed");
       return structuredClone(tab);
     },
+    update: async (id: number, changes: { url: string }) => {
+      if (failRedirect) throw new Error("Tab navigation unavailable");
+      const tab = openTabs.find((tab) => tab.id === id);
+      if (!tab) throw new Error("Tab closed");
+      redirectedTabs.push(id);
+      tab.url = changes.url;
+      return structuredClone(tab);
+    },
     onUpdated: {
       addListener: (listener: typeof tabUpdated) => {
         tabUpdated = listener;
@@ -49,12 +66,24 @@ const mock = {
   },
   scripting: {
     executeScript: async (options: { target: { tabId: number }; func: () => void }) => {
+      if (overlayFailure) {
+        overlayFailure();
+        throw new Error("Script injection unavailable");
+      }
       assert.equal(typeof options.func, "function");
       overlaidTabs.push(options.target.tabId);
       return [];
     },
   },
   runtime: {
+    ContextType: { OFFSCREEN_DOCUMENT: "OFFSCREEN_DOCUMENT" },
+    getContexts: async () => (offscreenOpen ? [{}] : []),
+    sendMessage: async (message: { target: string }) => {
+      assert.equal(message.target, "flow-audio");
+      if (failSound) return { error: "Audio unavailable" };
+      sounds++;
+      return { played: true };
+    },
     id: "test-flow",
     getURL: (path: string) => `chrome-extension://test-flow/${path}`,
     onMessage: {
@@ -73,6 +102,15 @@ const mock = {
         stored = structuredClone(value.flow);
         if (value.flowCompletion !== undefined) completion = value.flowCompletion;
       },
+    },
+  },
+  offscreen: {
+    Reason: { AUDIO_PLAYBACK: "AUDIO_PLAYBACK" },
+    createDocument: async (options: { url: string; reasons: string[] }) => {
+      assert.equal(options.url, "offscreen.html");
+      assert.deepEqual(options.reasons, ["AUDIO_PLAYBACK"]);
+      offscreenOpen = true;
+      offscreenCreations++;
     },
   },
   alarms: {
@@ -98,10 +136,15 @@ const mock = {
     },
   },
   action: {
+    setIcon: async ({ path }: { path: Record<number, string> }) => {
+      if (failToolbar) throw new Error("Toolbar icon unavailable");
+      toolbarIcon = path;
+    },
     setBadgeText: async ({ text }: { text: string }) => {
       badge = text;
     },
     setBadgeBackgroundColor: async () => {},
+    setBadgeTextColor: async () => {},
     setTitle: async ({ title }: { title: string }) => {
       badgeTitle = title;
     },
@@ -148,40 +191,166 @@ const send = (action: Action, blockedPage = false, popupOpened = false) =>
   await import("../src/background.js");
 }
 describe("background orchestration with mocked Chrome APIs", () => {
-  it("keeps a completion badge after the notification window and clears it only when acknowledged", async () => {
+  it("plays one independent chime per target with banners disabled and reuses the audio document", async () => {
+    await send({
+      type: "settings",
+      settings: { notifications: false, sound: true, keepCounting: true },
+    });
+    await send({ type: "start", minutes: 1 });
+    advance(65000);
+    await Promise.all([send({ type: "tick" }), send({ type: "tick" })]);
+    assert.equal(sounds, 1);
+    assert.equal(notifications, 0);
+    assert.equal(offscreenCreations, 1);
+    assert.equal(stored.timer.completedAt, undefined);
+    assert.equal(stored.timer.mode, "focus");
+    assert.equal(alarms.has("flow-target"), false);
+    advance(120000);
+    await send({ type: "tick" });
+    assert.equal(sounds, 1);
+    assert.equal(stored.timer.mode, "focus");
+    await send({ type: "takeBreak" });
+    advance(6 * 60000);
+    await send({ type: "tick" });
+    assert.equal(sounds, 2);
+    assert.equal(offscreenCreations, 1);
+    assert.equal(stored.timer.mode, "idle");
+    assert(stored.history[0].focusMs >= 120000);
+  });
+  it("respects muted sound and plays after a late wake only once", async () => {
+    await send({ type: "settings", settings: { sound: false } });
     await send({ type: "start", minutes: 1 });
     advance(65000);
     await send({ type: "tick" });
-    assert.equal(badge, "✓");
+    assert.equal(sounds, 0);
+    assert.equal(latestNotice!.options.silent, true);
+    await send({ type: "finish" });
+    await send({ type: "settings", settings: { sound: true } });
+    await send({ type: "start", minutes: 1 });
+    advance(10 * 60000);
+    await send({ type: "tick" });
+    await send({ type: "tick" });
+    assert.equal(sounds, 1);
+    assert.equal(stored.timer.mode, "idle");
+  });
+  it("reports preview failures without affecting the timer and tolerates completion audio failures", async () => {
+    failSound = true;
+    const preview = await send({ type: "testSound" });
+    assert.match(preview.error!, /Audio unavailable/);
+    assert.equal(stored.timer.mode, "idle");
+    await send({ type: "start", minutes: 1 });
+    advance(65000);
+    const result = await send({ type: "tick" });
+    assert.equal(result.error, undefined);
+    assert.equal(stored.timer.anchor, null);
+    assert.equal(notifications, 1);
+    failSound = false;
+    await send({ type: "tick" });
+    assert.equal(sounds, 0);
+  });
+  it("shows running toolbar status through popup opens and clears it on breaks and stopping", async () => {
+    await send({ type: "start", minutes: 10 });
+    assert.equal(toolbarIcon[16], "icons/running-16.png");
+    assert.equal(toolbarIcon[32], "icons/running-32.png");
+    assert.equal(badgeTitle, "Flow: Focus running");
+    assert.equal(badge, "");
+    advance(60000);
+    await send({ type: "tick" }, false, true);
+    assert.equal(toolbarIcon[16], "icons/running-16.png");
+    assert.equal(badge, "");
+    await send({ type: "pause" }, true);
+    assert.equal(toolbarIcon[16], "icons/16.png");
+    assert.equal(badgeTitle, "Flow");
+    await send({ type: "start", minutes: 1 });
+    advance(65000);
+    await send({ type: "tick" });
+    assert.equal(toolbarIcon[16], "icons/16.png");
+    await send({ type: "repeat" });
+    assert.equal(toolbarIcon[16], "icons/running-16.png");
+    assert.equal(badge, "");
+    advance(65000);
+    await send({ type: "tick" });
+    await send({ type: "takeBreak" });
+    assert.equal(toolbarIcon[16], "icons/16.png");
+    assert.equal(badge, "II");
+    await send({ type: "skip" });
+    assert.equal(toolbarIcon[16], "icons/16.png");
+    assert.equal(badge, "");
+  });
+  it("keeps the quiet running icon during overtime even before completion is acknowledged", async () => {
+    await send({ type: "settings", settings: { keepCounting: true } });
+    await send({ type: "start", minutes: 1 });
+    advance(65000);
+    await send({ type: "tick" });
+    assert.equal(completion, true);
+    assert.equal(toolbarIcon[16], "icons/running-16.png");
+    assert.equal(badge, "");
+    assert.equal(badgeTitle, "Flow: Focus running");
+    await send({ type: "finish" });
+    assert.equal(toolbarIcon[16], "icons/16.png");
+  });
+  it("still sends completion alerts when the toolbar icon update fails", async () => {
+    await send({ type: "start", minutes: 1 });
+    advance(65000);
+    failToolbar = true;
+    try {
+      const result = await send({ type: "tick" });
+      assert.equal(result.error, undefined);
+      assert.equal(notifications, 1);
+      assert.equal(sounds, 1);
+      assert.equal(latestNotice!.options.title, "Focus complete");
+      await send({ type: "tick" });
+      assert.equal(notifications, 1);
+    } finally {
+      failToolbar = false;
+    }
+  });
+  it("keeps the completion tooltip without a badge until acknowledged", async () => {
+    await send({ type: "start", minutes: 1 });
+    advance(65000);
+    await send({ type: "tick" });
+    assert.equal(badge, "");
+    assert.equal(toolbarIcon[16], "icons/16.png");
+    assert.equal(toolbarIcon[32], "icons/32.png");
     assert.equal(badgeTitle, "Flow: Focus complete");
     advance(60000);
     await send({ type: "tick" });
     assert.equal(stored.timer.mode, "idle");
     assert.equal(completion, true);
-    assert.equal(badge, "✓");
+    assert.equal(badge, "");
+    assert.equal(toolbarIcon[16], "icons/16.png");
+    assert.equal(toolbarIcon[32], "icons/32.png");
     await send({ type: "settings", settings: { sound: true } });
-    assert.equal(badge, "✓");
+    assert.equal(badge, "");
+    assert.equal(toolbarIcon[16], "icons/16.png");
+    assert.equal(toolbarIcon[32], "icons/32.png");
     // A website overlay cannot pretend that the popup was opened.
     await send({ type: "tick" }, true, true);
-    assert.equal(badge, "✓");
+    assert.equal(badge, "");
+    assert.equal(toolbarIcon[16], "icons/16.png");
+    assert.equal(toolbarIcon[32], "icons/32.png");
     await send({ type: "tick" }, false, true);
     assert.equal(completion, false);
     assert.equal(badge, "");
     assert.equal(badgeTitle, "Flow");
+    assert.equal(toolbarIcon[16], "icons/16.png");
     await send({ type: "tick" });
     assert.equal(badge, "");
   });
 
-  it("shows a badge even after a late wake with notifications off and clears it for a new session", async () => {
+  it("keeps completion status after a late wake without changing the normal icon", async () => {
     await send({ type: "settings", settings: { notifications: false } });
     await send({ type: "start", minutes: 1 });
     advance(10 * 60000);
     await send({ type: "tick" });
     assert.equal(stored.timer.mode, "idle");
-    assert.equal(badge, "✓");
+    assert.equal(badge, "");
+    assert.equal(toolbarIcon[16], "icons/16.png");
+    assert.equal(toolbarIcon[32], "icons/32.png");
     assert.equal(notifications, 0);
     assert.equal(stored.history[0].focusMs, 60000);
     await send({ type: "start", minutes: 1 });
+    assert.equal(toolbarIcon[16], "icons/running-16.png");
     assert.equal(badge, "");
     await send({ type: "pause" }, true);
     assert.equal(badge, "");
@@ -230,10 +399,18 @@ describe("background orchestration with mocked Chrome APIs", () => {
     badgeTitle = "";
     rules = [];
     notifications = 0;
+    sounds = 0;
+    offscreenOpen = false;
+    failSound = false;
+    failToolbar = false;
+    offscreenCreations = 0;
     latestNotice = undefined;
     clearedNotices = [];
     openTabs = [];
     overlaidTabs = [];
+    overlayFailure = undefined;
+    redirectedTabs = [];
+    failRedirect = false;
     failWrite = false;
     permitted = true;
     alarms.clear();
@@ -473,6 +650,104 @@ describe("background orchestration with mocked Chrome APIs", () => {
     assert.equal(openTabs[0].url, "https://example.com/watch");
     assert.equal(openTabs[2].url, "https://notexample.com/");
   });
+  it("falls back to the blocking page when an open blocked tab rejects the overlay", async () => {
+    await send({
+      type: "settings",
+      settings: { blocking: true, sites: ["example.com"] },
+    });
+    openTabs = [
+      { id: 1, url: "https://example.com/" },
+      { id: 2, url: "https://unrelated.test/" },
+    ] as chrome.tabs.Tab[];
+    overlayFailure = () => {};
+    const result = await send({ type: "start", minutes: 1 });
+    assert.equal(result.error, undefined);
+    assert.deepEqual(redirectedTabs, [1]);
+    assert.equal(openTabs[0].url, "chrome-extension://test-flow/blocked.html");
+    assert.equal(openTabs[1].url, "https://unrelated.test/");
+    assert.equal(stored.timer.mode, "focus");
+    advance(65000);
+    await send({ type: "tick" });
+    assert.equal(notifications, 1);
+    assert.equal(sounds, 1);
+  });
+  it("does not redirect a tab that closes, navigates away, or reaches the deadline during injection", async () => {
+    await send({
+      type: "settings",
+      settings: { blocking: true, sites: ["example.com"] },
+    });
+    await send({ type: "start", minutes: 10 });
+    for (const change of [
+      () => {
+        openTabs = [];
+      },
+      () => {
+        openTabs[0].url = "https://unrelated.test/";
+      },
+      () => {
+        advance(11 * 60000);
+      },
+    ]) {
+      openTabs = [{ id: 1, url: "https://example.com/" }] as chrome.tabs.Tab[];
+      overlayFailure = change;
+      const result = await send({ type: "tick" });
+      assert.equal(result.error, undefined);
+      assert.deepEqual(redirectedTabs, []);
+    }
+  });
+  it("does not redirect a different site reached during the fallback permission check", async () => {
+    await send({
+      type: "settings",
+      settings: { blocking: true, sites: ["example.com", "other.test"] },
+    });
+    openTabs = [{ id: 1, url: "https://example.com/" }] as chrome.tabs.Tab[];
+    overlayFailure = () => {};
+    const contains = mock.permissions.contains;
+    let checks = 0;
+    mock.permissions.contains = async () => {
+      if (++checks === 2) openTabs[0].url = "https://other.test/";
+      return true;
+    };
+    try {
+      assert.equal((await send({ type: "start", minutes: 1 })).error, undefined);
+      assert.deepEqual(redirectedTabs, []);
+      assert.equal(openTabs[0].url, "https://other.test/");
+    } finally {
+      mock.permissions.contains = contains;
+    }
+  });
+  it("leaves discarded tabs alone until they are restored", async () => {
+    await send({
+      type: "settings",
+      settings: { blocking: true, sites: ["example.com"] },
+    });
+    openTabs = [
+      { id: 1, url: "https://example.com/", discarded: true },
+    ] as chrome.tabs.Tab[];
+    overlayFailure = () => {};
+    assert.equal((await send({ type: "start", minutes: 1 })).error, undefined);
+    assert.deepEqual(redirectedTabs, []);
+  });
+  it("does not bypass revoked site access and still delivers completion alerts after blocking failures", async () => {
+    await send({
+      type: "settings",
+      settings: { blocking: true, sites: ["example.com"] },
+    });
+    openTabs = [{ id: 1, url: "https://example.com/" }] as chrome.tabs.Tab[];
+    overlayFailure = () => {
+      permitted = false;
+    };
+    assert.match((await send({ type: "start", minutes: 1 })).error!, /site access/);
+    assert.deepEqual(redirectedTabs, []);
+    permitted = true;
+    failRedirect = true;
+    overlayFailure = () => {};
+    assert.match((await send({ type: "tick" })).error!, /site access/);
+    advance(65000);
+    assert.equal((await send({ type: "tick" })).error, undefined);
+    assert.equal(notifications, 1);
+    assert.equal(sounds, 1);
+  });
   it("blocks restored tabs and leaves open tabs accessible during breaks and after interruption", async () => {
     await send({
       type: "settings",
@@ -591,8 +866,10 @@ describe("background orchestration with mocked Chrome APIs", () => {
     await send({ type: "start", minutes: 10 });
     const session = stored.timer.session!.id;
     advance(4 * 60000);
-    assert.ok((await send({ type: "selectTask", taskId: coding.id })).error);
-    await send({ type: "selectTask", taskId: coding.id, confirm: true });
+    assert.equal(
+      (await send({ type: "selectTask", taskId: coding.id })).error,
+      undefined,
+    );
     assert.equal(stored.timer.session!.id, session);
     assert.equal(stored.timer.session!.focusMs, 4 * 60000);
     assert.equal(stored.timer.session!.segments[0].taskId, reading.id);

@@ -1,6 +1,6 @@
 # Flow Privacy Policy
 
-Last updated: November 9, 2026
+Last updated: November 13, 2026
 
 This policy describes how the Flow Chrome extension handles information. Flow
 provides focus timers, optional website blocking, tasks, recurring goals, and focus
@@ -43,6 +43,9 @@ Website access is optional. You can revoke it in Chrome's extension settings.
   notification cleanup while the popup is closed.
 - **Notifications:** displays focus and break alerts and lets you choose a break
   or repeat a session. Notifications can be disabled in Flow.
+- **Offscreen:** plays a locally generated completion chime from a temporary hidden
+  extension page when the popup is closed, including during full-screen video.
+  It does not read website content or capture audio. Sound can be disabled in Flow.
 - **Declarative network request with host access:** redirects listed distracting
   websites to Flow's local blocking page while a focus countdown is active.
 - **Scripting:** displays Flow's blocking overlay on listed websites that are

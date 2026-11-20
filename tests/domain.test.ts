@@ -16,6 +16,53 @@ import {
 const start = (now = 1000) =>
   reduce(defaults(), { type: "start", minutes: 25 }, now, "same");
 describe("continuous focus sessions", () => {
+  it("defaults keep-counting off, validates it, and restores older exports", () => {
+    const data = defaults();
+    assert.equal(data.settings.keepCounting, false);
+    Reflect.deleteProperty(data.settings, "keepCounting");
+    assert.equal(migrate(data, 1000).settings.keepCounting, false);
+    assert.equal(validateData(data).settings.keepCounting, false);
+    assert.throws(
+      () => validateSettings({ ...defaults().settings, keepCounting: "yes" }),
+      /Invalid settings/,
+    );
+  });
+  it("keeps counting past the target and saves overtime precisely when finished", () => {
+    let data = defaults();
+    data.settings.keepCounting = true;
+    data = reduce(data, { type: "start", minutes: 1 }, 1000);
+    data = reduce(data, { type: "completeTarget" }, 66000);
+    assert.equal(data.timer.notified, true);
+    assert.equal(data.timer.anchor, 1000);
+    assert.equal(data.timer.completedAt, undefined);
+    data = reduce(data, { type: "completeTarget" }, 181000);
+    assert.equal(focusTime(data.timer, 181000), 180000);
+    assert.equal(migrate(data, 181000).timer.keepCounting, true);
+    data = reduce(data, { type: "finish" }, 181000);
+    assert.equal(data.history[0].focusMs, 180000);
+    assert.deepEqual(data.history[0].segments, [
+      { start: 1000, end: 181000, kind: "focus", taskId: null },
+    ]);
+    assert.equal(data.timer.mode, "idle");
+  });
+  it("applies keep-counting changes to new sessions without changing the running session", () => {
+    let data = start();
+    data = reduce(data, { type: "settings", settings: { keepCounting: true } }, 2000);
+    data = reduce(data, { type: "completeTarget" }, 25 * minute + 2000);
+    assert.equal(data.timer.anchor, null);
+    assert.equal(data.timer.keepCounting, false);
+    data = reduce(data, { type: "repeat" }, 25 * minute + 3000);
+    assert.equal(data.timer.keepCounting, true);
+    data = reduce(
+      data,
+      { type: "settings", settings: { keepCounting: false } },
+      25 * minute + 4000,
+    );
+    data = reduce(data, { type: "completeTarget" }, 51 * minute);
+    assert.equal(data.timer.completedAt, undefined);
+    assert.notEqual(data.timer.anchor, null);
+    assert.equal(data.timer.keepCounting, true);
+  });
   it("persists the liquid effect preference and validates older backups", () => {
     assert.equal(defaults().settings.liquidEffect, true);
     const data = reduce(
@@ -182,6 +229,7 @@ describe("continuous focus sessions", () => {
       "history",
       "tasks",
       "goals",
+      "generalTask",
       "selectedTaskId",
     ]);
   });

@@ -23,9 +23,15 @@ history data. Click an image to view it at full resolution.
 
 ## Features
 
-- Start a focus session by clicking the timer. The default is 10 minutes, with
+The timer home uses a consistent 300px by 340px window. Tasks, Statistics, and
+Settings size naturally with bounded scrollable panels. Settings groups timing, appearance, alerts,
+blocking, and local backups; light and dark themes use the same controls.
+
+- Start a focus session by clicking the time circle. The default is 10 minutes, with
   presets of 10, 20, 30, 60, 90, and 180 minutes, plus custom durations.
 - Choose a task or use General. Set recurring daily goals and track time by task.
+  For a goal scheduled today, the timer circle fills from bottom to top as you
+  record time toward that goal. Tasks without a scheduled goal keep a plain circle.
 - Block distracting domains, including already-open websites, after granting
   optional website access.
 - Browse calendar week, month, and year graphs with matching task totals and saved
@@ -35,6 +41,9 @@ history data. Click an image to view it at full resolution.
 - Choose light, dark, or system appearance. Hide the home duration selector for a
   simpler, single-button start screen.
 - Export and import local backups.
+
+Click the task name on the timer to switch tasks from a compact dropdown without
+leaving the timer. Use **Manage tasks** in that dropdown to edit or create tasks.
 
 In Settings, turn off **Show task on home** to hide the task selector and goal
 progress. Your selected task continues tracking time; tasks remain accessible
@@ -47,11 +56,26 @@ counting and website blocking ends. You have 30 seconds to choose **Repeat sessi
 or **Take a break** from the popup or notification. Otherwise, Flow saves the session
 and returns home. Breaks start only when requested; ending a break returns home too.
 
+Enable **Keep counting after target** in Settings to continue tracking focus until
+you choose **End focus** or **Take a break**. The target still triggers a completion
+alert, and website blocking ends at the target. This option is off by default and
+applies to new sessions; all additional focus time is included in statistics.
+
+**Completion sound** plays one short notification bell even with the popup closed or a video
+in full screen, independently of notification banners. Use **Test completion sound**
+in Settings to check it. Sound is on for new installations; existing sound
+preferences are preserved. Chrome and your device must be unmuted. The chime uses
+a temporary local offscreen page; it does not access or interrupt video content.
+
+If an already-open blocked page cannot display the warning overlay, Flow uses
+its blocking page instead. Closed, discarded, or unrelated tabs are left alone;
+site access must still be granted.
+
 During a focus countdown, there are no pause or finish controls in the popup. To
 interrupt a session, use **End session and save partial time** on Flow's blocked-site
 screen or overlay. Partial focus time is saved, and the session cannot be resumed.
 
-Changing tasks during a session requires confirmation. Previously recorded time
+Selecting a task switches immediately, including during a session. Previously recorded time
 stays with its original task, while future focus time goes to the new selection.
 
 Use the **pencil icon** beside a custom task (hover for **Edit task**) to change its name or goal, archive it, or
@@ -59,13 +83,17 @@ delete it. Use **Archived tasks** above the list to find tasks you can restore.
 Renaming preserves recorded time. Deletion requires
 confirmation and removes its goal; past focus remains in statistics as **Deleted
 task**. If it is the running task, the timer continues as **General**. General
-is the permanent default and cannot be deleted.
+is the permanent default and cannot be archived or deleted. Its **pencil icon**
+lets you edit its name, icon, and daily goal, including goal days or disabling the
+goal. Existing General time counts toward its goal; renaming does not split history.
 
 Notifications and their action buttons depend on Chrome and operating-system
 settings. Deadline recovery runs when Chrome resumes after being closed or asleep.
-If you miss a completion notification, a **checkmark** badge stays on Flow's toolbar
-icon until you open Flow or start another session. Pin Flow to the toolbar to
-keep it visible. This badge works even when notification banners are disabled.
+A **violet face with an ivory play symbol** on Flow's toolbar icon means focus is running. It stays
+visible with the popup closed; hovering the icon says **Flow: Focus running**.
+When focus ends, the original icon returns. Its tooltip says **Flow: Focus complete**
+until you open Flow or start another session. Pin Flow to the toolbar to keep its
+running status visible. Overtime keeps the play symbol while time continues counting.
 
 ## Privacy
 

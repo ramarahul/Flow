@@ -32,13 +32,15 @@ it("keeps countdown actions hidden and presents only the essential choices in ov
   assert.doesNotMatch(overtime, /<select|<input/);
 });
 it("switches from countdown to total focus time counting upward at the target", () => {
-  const data = reduce(defaults(), { type: "start", minutes: 10 }, 1000);
+  const initial = defaults();
+  initial.settings.keepCounting = true;
+  const data = reduce(initial, { type: "start", minutes: 10 }, 1000);
   const read = (now: number) =>
     renderToStaticMarkup(createElement(TimerReadout, { timer: data.timer, now }));
-  assert.match(read(1000 + 9 * 60000), /IN FLOW/);
+  assert.match(read(1000 + 9 * 60000), /FOCUSING/);
   assert.match(read(1000 + 9 * 60000), /01:00/);
   const reached = read(1000 + 10 * 60000);
-  assert.match(reached, /FOCUS COMPLETE/);
+  assert.match(reached, /STILL IN FLOW/);
   assert.match(reached, /10:00/);
   const later = read(1000 + 12 * 60000 + 34000);
   assert.match(later, /12:34/);
@@ -47,14 +49,16 @@ it("switches from countdown to total focus time counting upward at the target", 
   assert.doesNotMatch(later, /\+02:34/);
   assert.equal(data.history.length, 0);
 });
-it("keeps the countdown compact without adding panels or controls", () => {
+it("keeps the countdown inside the shared timer circle without adding controls", () => {
   const data = reduce(defaults(), { type: "start", minutes: 10 }, 1000);
   const html = renderToStaticMarkup(
     createElement(TimerReadout, { timer: data.timer, now: 1000 + 150000 }),
   );
-  assert.match(html, /IN FLOW/);
+  assert.match(html, /FOCUSING/);
   assert.match(html, /07:30/);
   assert.match(html, /02:30/);
+  assert.match(html, /class="timer-circle timer-running"/);
+  assert.doesNotMatch(html, /progressbar|class="progress"/);
   assert.doesNotMatch(html, /focus-countdown|focus-dial|<svg/);
   assert.doesNotMatch(html, /<button|<input|<select|Pause|Extend|Finish/);
   const long = reduce(defaults(), { type: "start", minutes: 180 }, 1000);
@@ -116,6 +120,37 @@ it("renders quiet daily goal completion with uncapped actual time and a capped i
   assert.equal(data.timer.mode, "focus");
   assert.equal(data.history.length, 0);
 });
+it("keeps daily goal progress without a surrounding task ring", () => {
+  const now = +new Date(2026, 10, 9, 12);
+  let data = reduce(
+    defaults(),
+    {
+      type: "saveTask",
+      name: "Reading",
+      goal: { targetMinutes: 20, weekdays: [0, 1, 2, 3, 4, 5, 6], enabled: true },
+    },
+    now,
+    "reading",
+  );
+  data = reduce(data, { type: "selectTask", taskId: "reading" }, now);
+  data = reduce(data, { type: "start", minutes: 20 }, now);
+  const orbit = (minutes: number) =>
+    renderToStaticMarkup(
+      createElement(TaskPicker, {
+        variant: "orbit",
+        data,
+        now: now + minutes * 60000,
+        onOpen: () => {},
+      }),
+    );
+  assert.doesNotMatch(orbit(5), /task-ring/);
+  assert.match(orbit(5), /aria-valuenow="25"/);
+  assert.match(orbit(5), /Today 5m.*Goal 20m/);
+  assert.match(orbit(30), /aria-valuenow="100"/);
+  assert.match(orbit(30), /Daily goal reached/);
+  assert.doesNotMatch(orbit(0), /class="task-ring-progress"/);
+});
+
 it("provides General and task-management access in a separate selection screen", () => {
   const data = reduce(
     defaults(),

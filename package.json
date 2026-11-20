@@ -7,7 +7,7 @@
     "dev": "vite build --watch",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "tsc -p tsconfig.test.json && node --test .test-build/tests/domain.test.js .test-build/tests/background.test.js .test-build/tests/overlay.test.js .test-build/tests/actions.test.js .test-build/tests/goals.test.js .test-build/tests/statistics.test.js",
+    "test": "tsc -p tsconfig.test.json && node --test .test-build/tests/domain.test.js .test-build/tests/background.test.js .test-build/tests/overlay.test.js .test-build/tests/actions.test.js .test-build/tests/goals.test.js .test-build/tests/statistics.test.js .test-build/tests/offscreen.test.js",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:tooling": "node --test tests/tooling/pipeline.test.mjs tests/tooling/publish.test.mjs tests/tooling/release.test.mjs",

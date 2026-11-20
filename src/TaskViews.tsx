@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, Plus, Check, Pencil } from "lucide-react";
 import type { Action, Data } from "./domain.js";
 import type { Task, GoalInput } from "./tasks.js";
@@ -12,48 +12,211 @@ export function TaskPicker({
   data,
   now,
   onOpen,
+  send,
+  variant = "row",
+  context,
 }: {
   data: Data;
   now: number;
   onOpen: () => void;
+  send?: Send;
+  variant?: "row" | "orbit";
+  context?: string;
 }) {
   const id = data.timer.session
     ? (data.timer.session.taskId ?? null)
     : data.selectedTaskId;
   const actual = taskTotals(data, now).get(id) ?? 0;
-  const progress = id ? taskProgress(data, id, now, actual) : null;
+  const progress = taskProgress(data, id, now, actual);
+  const [open, setOpen] = useState(false);
+  const [working, setWorking] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const menuId = useId();
+  useEffect(() => {
+    if (!open) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    root.current
+      ?.querySelector<HTMLButtonElement>(".quick-task-list [aria-pressed='true']")
+      ?.focus();
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, [open]);
+  const close = () => {
+    setOpen(false);
+    trigger.current?.focus();
+  };
+  const choose = async (taskId: string | null) => {
+    if (!send) return;
+    setWorking(true);
+    try {
+      if (await send({ type: "selectTask", taskId })) close();
+      else trigger.current?.focus();
+    } finally {
+      setWorking(false);
+    }
+  };
   return (
-    <div className="home-task">
-      <button
-        className="task-picker"
-        onClick={onOpen}
-        aria-label={`Select task. ${taskLabel(data, id)}`}
-      >
-        <span>
-          <strong>{taskLabel(data, id)}</strong>
-          <small>
-            {focusDuration(actual)} today
-            {progress?.goal ? ` / ${focusDuration(progress.target)}` : ""}
-          </small>
-        </span>
-        <ChevronDown size={16} />
-      </button>
-      {progress?.goal && <GoalProgress progress={progress} />}
+    <div
+      ref={root}
+      className={"home-task" + (variant === "orbit" ? " task-orbit" : "")}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null) && !working)
+          setOpen(false);
+      }}
+      onKeyDown={(event) => {
+        if (open && event.key === "Escape") {
+          event.stopPropagation();
+          close();
+        }
+      }}
+    >
+      <div className="task-control">
+        {variant === "orbit" && (
+          <span
+            className="task-context"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {context ?? "Task"}
+          </span>
+        )}
+        <button
+          ref={trigger}
+          className="task-picker"
+          onClick={() => (send ? setOpen(!open) : onOpen())}
+          aria-expanded={send ? open : undefined}
+          aria-controls={send && open ? menuId : undefined}
+          aria-haspopup={send ? "dialog" : undefined}
+          aria-label={`Select task. ${taskLabel(data, id)}`}
+          title={
+            variant === "orbit"
+              ? `Change task: ${taskLabel(data, id)}`
+              : taskLabel(data, id)
+          }
+        >
+          <span>
+            <strong>
+              <span className="task-name">{taskLabel(data, id)}</span>
+            </strong>
+            {variant === "row" && (
+              <small>
+                {focusDuration(actual)} today
+                {progress?.goal ? ` / ${focusDuration(progress.target)}` : ""}
+              </small>
+            )}
+          </span>
+          {variant === "row" && <ChevronDown size={16} aria-hidden="true" />}
+        </button>
+      </div>
+      {open && (
+        <>
+          <button
+            className="quick-task-dismiss"
+            aria-label="Close task list"
+            tabIndex={-1}
+            onClick={close}
+          />
+          <div
+            className="quick-task-list"
+            id={menuId}
+            role="dialog"
+            aria-label="Choose task"
+            onKeyDown={(event) => {
+              if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+              event.preventDefault();
+              const buttons = Array.from(
+                event.currentTarget.querySelectorAll<HTMLButtonElement>(
+                  "button:not(:disabled)",
+                ),
+              );
+              const current = buttons.indexOf(
+                document.activeElement as HTMLButtonElement,
+              );
+              const next =
+                event.key === "Home"
+                  ? 0
+                  : event.key === "End"
+                    ? buttons.length - 1
+                    : (current + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) %
+                      buttons.length;
+              buttons[next]?.focus();
+            }}
+          >
+            <div className="quick-task-options">
+              {[null, ...data.tasks.filter((task) => !task.archived)].map((task) => {
+                const taskId = task?.id ?? null;
+                return (
+                  <button
+                    key={taskId ?? "general"}
+                    disabled={working}
+                    aria-pressed={id === taskId}
+                    onClick={() => void choose(taskId)}
+                  >
+                    <span>{taskLabel(data, taskId)}</span>
+                    {id === taskId && <Check size={14} aria-hidden="true" />}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              className="quick-task-manage"
+              disabled={working}
+              onClick={() => {
+                setOpen(false);
+                onOpen();
+              }}
+            >
+              Manage tasks
+            </button>
+          </div>
+        </>
+      )}
+      {progress?.goal ? (
+        <GoalProgress
+          progress={progress}
+          summary={
+            variant === "orbit"
+              ? `Today ${focusDuration(actual)}${progress.scheduled ? ` \u00b7 Goal ${focusDuration(progress.target)}` : ""}`
+              : undefined
+          }
+        />
+      ) : (
+        variant === "orbit" && (
+          <span className="orbit-task-summary">Today {focusDuration(actual)}</span>
+        )
+      )}
     </div>
   );
 }
-function GoalProgress({ progress }: { progress: ReturnType<typeof taskProgress> }) {
+function GoalProgress({
+  progress,
+  summary,
+}: {
+  progress: ReturnType<typeof taskProgress>;
+  summary?: string;
+}) {
   return (
     <div className="goal-progress">
-      <div>
+      <div
+        className={
+          progress.scheduled && !progress.complete ? "goal-progress-label" : undefined
+        }
+      >
         <span>
-          {!progress.scheduled
-            ? "Not scheduled today"
-            : progress.complete
-              ? "Daily goal reached"
-              : "Today's goal"}
+          {summary ??
+            (!progress.scheduled
+              ? "Not scheduled today"
+              : progress.complete
+                ? "Daily goal reached"
+                : "Today's goal")}
         </span>
-        {progress.complete && <Check size={12} />}
+        {progress.complete && (
+          <Check size={10} role="img" aria-label="Daily goal reached" />
+        )}
       </div>
       {progress.scheduled && (
         <div
@@ -82,24 +245,18 @@ export function TaskViews({
   send: Send;
   onBack: () => void;
 }) {
-  const [editor, setEditor] = useState<Task | "new" | null>(null);
+  const [editor, setEditor] = useState<Task | "new" | "general" | null>(null);
   const [showArchived, setShowArchived] = useState(false);
-  const [pending, setPending] = useState<{ id: string | null } | null>(null);
   const [working, setWorking] = useState(false);
   const totals = taskTotals(data, now);
   const selected = data.timer.session
     ? (data.timer.session.taskId ?? null)
     : data.selectedTaskId;
-  const choose = async (id: string | null, confirm = false) => {
-    if (data.timer.session && selected !== id && !confirm) {
-      setPending({ id });
-      return;
-    }
+  const choose = async (id: string | null) => {
     setWorking(true);
     try {
-      const next = await send({ type: "selectTask", taskId: id, confirm });
+      const next = await send({ type: "selectTask", taskId: id });
       if (next) {
-        setPending(null);
         onBack();
       }
     } finally {
@@ -109,9 +266,10 @@ export function TaskViews({
   if (editor)
     return (
       <TaskEditor
-        key={editor === "new" ? "new" : editor.id}
+        key={typeof editor === "string" ? `editor-${editor}` : `task-${editor.id}`}
         data={data}
-        task={editor === "new" ? undefined : editor}
+        task={typeof editor === "string" ? undefined : editor}
+        general={editor === "general"}
         send={send}
         onBack={() => setEditor(null)}
       />
@@ -125,29 +283,6 @@ export function TaskViews({
           ? "Restore a task to focus on it again."
           : "Choose where your time goes."}
       </p>
-      {pending && (
-        <div className="switch-confirm" role="alert">
-          <strong>Switch to {taskLabel(data, pending.id)}?</strong>
-          <p>
-            Time already focused stays with {taskLabel(data, selected)}. Only future focus
-            time goes to the new task. Your timer stays the same.
-          </p>
-          <button
-            className="primary"
-            disabled={working}
-            onClick={() => void choose(pending.id, true)}
-          >
-            Switch and continue
-          </button>
-          <button
-            className="text-button full"
-            disabled={working}
-            onClick={() => setPending(null)}
-          >
-            Cancel
-          </button>
-        </div>
-      )}
       <div className="task-toolbar">
         <button className="secondary" disabled={working} onClick={() => setEditor("new")}>
           <Plus size={15} /> Add task
@@ -160,55 +295,57 @@ export function TaskViews({
           {showArchived ? "Active tasks" : "Archived tasks"}
         </button>
       </div>
-      <button
-        className="task-card default-task"
-        aria-pressed={selected === null}
-        disabled={working}
-        onClick={() => void choose(null)}
-      >
-        <span>
-          <strong>General</strong>
-          <small>{focusDuration(totals.get(null) ?? 0)} today</small>
-        </span>
-        {selected === null && <Check size={16} />}
-      </button>
-      {visible.map((task) => {
-        const progress = taskProgress(data, task.id, now, totals.get(task.id) ?? 0);
-        return (
-          <div className="task-list-item" key={task.id}>
-            <div className="task-row">
-              <button
-                className="task-card"
-                aria-pressed={selected === task.id}
-                disabled={task.archived || working}
-                onClick={() => void choose(task.id)}
-              >
-                <span>
-                  <strong>{taskLabel(data, task.id)}</strong>
-                  <small>
-                    {focusDuration(progress.ms)}
-                    {progress.goal ? ` / ${focusDuration(progress.target)}` : " today"}
-                  </small>
-                </span>
-                {selected === task.id && <Check size={16} />}
-              </button>
-              <button
-                className="task-edit"
-                disabled={working}
-                aria-label={`Edit task: ${task.name}`}
-                title={`Edit task: ${task.name}`}
-                onClick={() => {
-                  setPending(null);
-                  setEditor(task);
-                }}
-              >
-                <Pencil size={16} aria-hidden="true" />
-              </button>
+      <div className="task-list" role="list" aria-label="Tasks">
+        {[null, ...visible].map((task) => {
+          const id = task?.id ?? null;
+          const name = task?.name ?? data.generalTask?.name ?? "General";
+          const progress = taskProgress(data, id, now, totals.get(id) ?? 0);
+          return (
+            <div
+              className={"task-list-item" + (selected === id ? " is-selected" : "")}
+              role="listitem"
+              key={id === null ? "default-task" : `task-${id}`}
+            >
+              <div className="task-row">
+                <button
+                  className={"task-card" + (task ? "" : " default-task")}
+                  aria-pressed={selected === id}
+                  disabled={task?.archived || working}
+                  onClick={() => void choose(id)}
+                >
+                  <span className="task-details">
+                    <strong>
+                      <span title={taskLabel(data, id)}>{taskLabel(data, id)}</span>
+                      {selected === id && <Check size={12} aria-hidden="true" />}
+                    </strong>
+                    <small className="task-metadata">
+                      {progress.goal
+                        ? `Daily goal ${focusDuration(progress.target)}`
+                        : "No daily goal"}
+                    </small>
+                  </span>
+                  <span className="task-time">
+                    <b>{focusDuration(progress.ms)}</b>
+                    <small>today</small>
+                  </span>
+                </button>
+                <button
+                  className="task-edit"
+                  disabled={working}
+                  aria-label={`Edit task: ${name}`}
+                  title={`Edit task: ${name}`}
+                  onClick={() => {
+                    setEditor(task ?? "general");
+                  }}
+                >
+                  <Pencil size={16} aria-hidden="true" />
+                </button>
+              </div>
+              {progress.goal && !task?.archived && <GoalProgress progress={progress} />}
             </div>
-            {progress.goal && !task.archived && <GoalProgress progress={progress} />}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
       {!visible.length && showArchived && (
         <p className="history-empty">No archived tasks.</p>
       )}
@@ -218,20 +355,23 @@ export function TaskViews({
 function TaskEditor({
   data,
   task,
+  general = false,
   send,
   onBack,
 }: {
   data: Data;
   task?: Task;
+  general?: boolean;
   send: Send;
   onBack: () => void;
 }) {
-  const goal = data.goals.find((goal) => goal.taskId === task?.id);
-  const [name, setName] = useState(task?.name ?? ""),
-    [icon, setIcon] = useState(task?.icon ?? ""),
+  const details = general ? (data.generalTask ?? { name: "General" }) : task;
+  const goal = data.goals.find((goal) => goal.taskId === (general ? null : task?.id));
+  const [name, setName] = useState(details?.name ?? ""),
+    [icon, setIcon] = useState(details?.icon ?? ""),
     [target, setTarget] = useState(goal?.targetMinutes ?? 30),
     [weekdays, setWeekdays] = useState(goal?.weekdays ?? allDays),
-    [enabled, setEnabled] = useState(goal?.enabled ?? true),
+    [enabled, setEnabled] = useState(goal?.enabled ?? !general),
     [saving, setSaving] = useState(false),
     [deleting, setDeleting] = useState(false);
   return (
@@ -239,10 +379,16 @@ function TaskEditor({
       <button className="back-home" disabled={saving} onClick={onBack}>
         <ArrowLeft size={20} /> Back to tasks
       </button>
-      <h2>{task ? "Edit task" : "Add task"}</h2>
+      <h2>{task || general ? "Edit task" : "Add task"}</h2>
       <p className="subtitle">
         Choose what to work on and how much time to give it each day.
       </p>
+      {general && (
+        <p className="quiet">
+          Your permanent default task. Edit its details and goal; it cannot be archived or
+          deleted.
+        </p>
+      )}
       {task && (
         <div className="task-editor-actions" role="group" aria-label="Task actions">
           <button
@@ -286,7 +432,8 @@ function TaskEditor({
           </p>
           {data.timer.session?.taskId === task.id && (
             <p>
-              Your current session will continue as General without restarting the timer.
+              Your current session will continue as {taskLabel(data, null)} without
+              restarting the timer.
             </p>
           )}
           <div>
@@ -324,7 +471,7 @@ function TaskEditor({
           const input: GoalInput = { targetMinutes: target, weekdays, enabled };
           const next = await send({
             type: "saveTask",
-            taskId: task?.id,
+            taskId: general ? null : task?.id,
             name,
             icon,
             goal: input,

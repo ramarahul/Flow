@@ -21,7 +21,12 @@ export function taskTotals(data: Data, now: number, days = 1, offset = 0) {
   }
   return totals;
 }
-export function taskProgress(data: Data, taskId: string, now: number, actual?: number) {
+export function taskProgress(
+  data: Data,
+  taskId: string | null,
+  now: number,
+  actual?: number,
+) {
   const goal = data.goals.find((goal) => goal.taskId === taskId && goal.enabled);
   const ms = actual ?? taskTotals(data, now).get(taskId) ?? 0;
   const scheduled = !!goal?.weekdays.includes(new Date(now).getDay());
@@ -36,10 +41,11 @@ export function taskProgress(data: Data, taskId: string, now: number, actual?: n
   };
 }
 export function taskLabel(data: Data, id: string | null | undefined) {
-  if (!id) return "General";
-  const task = data.tasks.find((task) => task.id === id);
+  const task = !id
+    ? (data.generalTask ?? { name: "General" })
+    : data.tasks.find((task) => task.id === id);
   return task
-    ? `${task.icon ? task.icon + " " : ""}${task.name}${task.archived ? " (archived)" : ""}`
+    ? `${task.icon ? task.icon + " " : ""}${task.name}${"archived" in task && task.archived ? " (archived)" : ""}`
     : "Deleted task";
 }
 export function focusDuration(ms: number) {
