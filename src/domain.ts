@@ -1,6 +1,7 @@
 import {
   updateTasks,
   validateCatalog,
+  validateGeneralTask,
   type Task,
   type DailyGoal,
   type TaskAction,
@@ -25,6 +26,7 @@ export interface Session {
   taskId?: string | null;
 }
 export interface Timer {
+  keepCounting?: boolean;
   completedAt?: number;
   mode: Mode;
   paused: boolean;
@@ -39,6 +41,7 @@ export interface Settings {
   break: number;
   notifications: boolean;
   sound: boolean;
+  keepCounting: boolean;
   blocking: boolean;
   sites: string[];
   theme: "system" | "light" | "dark";
@@ -53,6 +56,7 @@ export interface Data {
   settings: Settings;
   history: Session[];
   tasks: Task[];
+  generalTask?: Pick<Task, "name" | "icon">;
   goals: DailyGoal[];
   selectedTaskId: string | null;
 }
@@ -76,7 +80,8 @@ export const defaults = (): Data => ({
     focus: 10,
     break: 5,
     notifications: true,
-    sound: false,
+    sound: true,
+    keepCounting: false,
     blocking: false,
     sites: [],
     theme: "system",
@@ -86,6 +91,7 @@ export const defaults = (): Data => ({
   },
   history: [],
   tasks: [],
+  generalTask: { name: "General" },
   goals: [],
   selectedTaskId: null,
 });
@@ -169,6 +175,7 @@ export function migrate(input: unknown, now: number): Data {
   const checked = validateData(raw);
   d.history = checked.history;
   d.settings = checked.settings;
+  d.generalTask = checked.generalTask;
   const catalog = validateCatalog(d.tasks ?? [], d.goals ?? []);
   d.tasks = catalog.tasks;
   d.goals = catalog.goals;
@@ -179,6 +186,7 @@ export function migrate(input: unknown, now: number): Data {
       ? d.selectedTaskId
       : null;
   if (
+    (d.timer.keepCounting !== undefined && typeof d.timer.keepCounting !== "boolean") ||
     !["idle", "focus", "break", "breakDone"].includes(d.timer.mode) ||
     typeof d.timer.paused !== "boolean" ||
     (d.timer.anchor !== null && !Number.isFinite(d.timer.anchor)) ||
@@ -261,7 +269,7 @@ export function migrate(input: unknown, now: number): Data {
 }
 export type Action =
   | TaskAction
-  | { type: "selectTask"; taskId: string | null; confirm?: boolean }
+  | { type: "selectTask"; taskId: string | null }
   | { type: "start" | "extend" | "break" | "extendBreak"; minutes: number }
   | {
       type:
@@ -276,6 +284,7 @@ export type Action =
         | "takeBreak";
     }
   | { type: "settings"; settings: Partial<Settings> }
+  | { type: "testSound" }
   | { type: "import"; data: unknown };
 export function reduce(
   input: Data,
@@ -294,6 +303,7 @@ export function reduce(
       "Breaks cannot be paused, resumed, or extended. End the break to start a new session.",
     );
   if (action.type === "reset") return defaults();
+  if (action.type === "testSound") return d;
   if (action.type === "import") {
     const imported = validateData(action.data);
     if (t.mode !== "idle")
@@ -302,16 +312,17 @@ export function reduce(
   }
   if (action.type === "settings") {
     d.settings = validateSettings({ ...d.settings, ...action.settings });
+    if (
+      action.settings.keepCounting !== undefined &&
+      t.mode === "focus" &&
+      remaining(t, now) > 0
+    )
+      t.keepCounting = d.settings.keepCounting;
     return d;
   }
   if (action.type === "deleteTask") {
     if (t.session && t.session.taskId === action.taskId) {
-      const next = reduce(
-        d,
-        { type: "selectTask", taskId: null, confirm: true },
-        now,
-        id,
-      );
+      const next = reduce(d, { type: "selectTask", taskId: null }, now, id);
       updateTasks(next, action, id);
       return next;
     }
@@ -329,10 +340,6 @@ export function reduce(
     )
       throw new Error("Choose an active task or General.");
     if (t.session && (t.session.taskId ?? null) !== action.taskId) {
-      if (action.confirm !== true)
-        throw new Error(
-          "Confirm Switch and continue to change the task for future focus time.",
-        );
       if (t.mode === "focus" && !t.paused) settle(t, now);
       t.session.taskId = action.taskId;
     }
@@ -360,6 +367,7 @@ export function reduce(
     d.timer = {
       ...emptyTimer(),
       mode: "focus",
+      keepCounting: d.settings.keepCounting,
       anchor: now,
       session: {
         id,
@@ -376,6 +384,10 @@ export function reduce(
   }
   if (!t.session) return d;
   if (action.type === "completeTarget" && t.mode === "focus" && !t.paused) {
+    if (t.keepCounting) {
+      if (remaining(t, now) <= 0) t.notified = true;
+      return d;
+    }
     if (t.completedAt === undefined && remaining(t, now) <= 0) {
       // Preserve intervals already saved by older versions that allowed overtime.
       const end = Math.max(
@@ -450,6 +462,7 @@ export function validateSettings(raw: unknown): Settings {
   if (
     typeof s.notifications !== "boolean" ||
     typeof s.sound !== "boolean" ||
+    (s.keepCounting !== undefined && typeof s.keepCounting !== "boolean") ||
     typeof s.blocking !== "boolean" ||
     (s.showDuration !== undefined && typeof s.showDuration !== "boolean") ||
     (s.showTask !== undefined && typeof s.showTask !== "boolean") ||
@@ -464,6 +477,7 @@ export function validateSettings(raw: unknown): Settings {
     break: Number(s.break),
     notifications: s.notifications,
     sound: s.sound,
+    keepCounting: s.keepCounting ?? false,
     blocking: s.blocking,
     theme: s.theme,
     showDuration: s.showDuration ?? true,
@@ -542,6 +556,7 @@ export function validateData(raw: unknown): Data {
     settings: validateSettings(d.settings),
     history,
     ...catalog,
+    generalTask: validateGeneralTask(d.generalTask),
     selectedTaskId: catalog.tasks.some(
       (task) => task.id === d.selectedTaskId && !task.archived,
     )

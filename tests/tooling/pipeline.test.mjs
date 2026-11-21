@@ -202,6 +202,7 @@ it("prepares release PRs from main without publishing credentials or bypassing C
   assert.deepEqual(workflow.on.workflow_dispatch.inputs.change.options, [
     "bug-fix",
     "feature",
+    "major-release",
   ]);
   assert.deepEqual(workflow.permissions, { contents: "read" });
   assert.match(workflow.jobs.prepare.if, /refs\/heads\/main/);
@@ -216,10 +217,9 @@ it("prepares release PRs from main without publishing credentials or bypassing C
   assert.equal(steps[0].with.ref, "main");
   assert.equal(steps[0].with["persist-credentials"], false);
   assert.equal(steps[0].with["fetch-depth"], 0);
-  assert.equal(
-    steps.find((step) => step.id === "version").env.RELEASE_AUTO_NOTES,
-    "true",
-  );
+  const version = steps.find((step) => step.id === "version");
+  assert.equal(version.env.RELEASE_AUTO_NOTES, "true");
+  assert.match(version.run, /major-release\) npm run release:prepare -- major ;;/);
   assert(steps.some((step) => step.run === "npm ci --ignore-scripts"));
   const pr = steps.find((step) => step.id === "pr");
   assert.equal(pr.with.base, "main");

@@ -5,6 +5,7 @@ export default defineConfig({
       input: {
         popup: "index.html",
         blocked: "blocked.html",
+        offscreen: "offscreen.html",
         background: "src/background.ts",
       },
       output: {

@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       change:
-        description: Bug fix bumps the patch version; feature bumps the minor version
+        description: Choose bug-fix for patch, feature for minor, or major-release for major
         required: true
         default: bug-fix
         type: choice
-        options: [bug-fix, feature]
+        options: [bug-fix, feature, major-release]
       notes:
         description: Optional summary; release notes are generated automatically when blank
         required: false
@@ -53,7 +53,8 @@ jobs:
           case "$RELEASE_KIND" in
             bug-fix) npm run release:prepare -- patch ;;
             feature) npm run release:prepare -- minor ;;
-            *) echo "Choose bug-fix or feature" >&2; exit 1 ;;
+            major-release) npm run release:prepare -- major ;;
+            *) echo "Choose bug-fix, feature, or major-release" >&2; exit 1 ;;
           esac
       - name: Format release files
         run: npx --no-install prettier --write package.json package-lock.json public/manifest.json CHANGELOG.md

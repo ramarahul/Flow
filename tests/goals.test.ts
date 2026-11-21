@@ -35,8 +35,8 @@ function tasks() {
     "coding",
   );
 }
-const select = (data: Data, id: string | null, at = base, confirm = false) =>
-  reduce(data, { type: "selectTask", taskId: id, confirm }, at);
+const select = (data: Data, id: string | null, at = base) =>
+  reduce(data, { type: "selectTask", taskId: id }, at);
 const work = (data: Data, id: string | null, start: number, minutes: number) =>
   reduce(
     reduce(
@@ -50,6 +50,95 @@ const work = (data: Data, id: string | null, start: number, minutes: number) =>
   );
 
 describe("recurring task goals and durable interval attribution", () => {
+  it("edits the permanent default and applies its goal to existing General time", () => {
+    let data = work(defaults(), null, base, 5);
+    const history = structuredClone(data.history);
+    data = reduce(
+      data,
+      {
+        type: "saveTask",
+        taskId: null,
+        name: "Unplanned focus",
+        icon: "*",
+        goal: { targetMinutes: 20, weekdays: all, enabled: true },
+      },
+      base + 6 * minute,
+      "general-goal",
+    );
+    assert.deepEqual(data.tasks, []);
+    assert.deepEqual(data.history, history);
+    assert.equal(data.selectedTaskId, null);
+    assert.equal(taskLabel(data, null), "* Unplanned focus");
+    assert.equal(taskProgress(data, null, base + 6 * minute).percent, 25);
+    const restored = validateData(JSON.parse(JSON.stringify(data)));
+    assert.deepEqual(restored.generalTask, data.generalTask);
+    assert.deepEqual(restored.goals, data.goals);
+    assert.deepEqual(migrate(data, base + 6 * minute).generalTask, data.generalTask);
+    assert.throws(
+      () => reduce(data, { type: "deleteTask", taskId: null as unknown as string }, base),
+      /permanent default/,
+    );
+    assert.throws(
+      () =>
+        reduce(
+          data,
+          { type: "archiveTask", taskId: null as unknown as string, archived: true },
+          base,
+        ),
+      /Task not found/,
+    );
+  });
+  it("updates the General goal without duplicating it or restarting a running session", () => {
+    let data = reduce(defaults(), { type: "start", minutes: 10 }, base, "active");
+    const timer = structuredClone(data.timer);
+    data = reduce(
+      data,
+      {
+        type: "saveTask",
+        taskId: null,
+        name: "General",
+        goal: { targetMinutes: 10, weekdays: all, enabled: true },
+      },
+      base + minute,
+      "goal-one",
+    );
+    data = reduce(
+      data,
+      {
+        type: "saveTask",
+        taskId: null,
+        name: "General",
+        goal: { targetMinutes: 15, weekdays: all, enabled: false },
+      },
+      base + 2 * minute,
+      "goal-two",
+    );
+    assert.deepEqual(data.timer, timer);
+    assert.equal(data.goals.length, 1);
+    assert.equal(data.goals[0].targetMinutes, 15);
+    assert.equal(taskProgress(data, null, base + 3 * minute).goal, undefined);
+    assert.equal(taskTotals(data, base + 3 * minute).get(null), 3 * minute);
+  });
+  it("restores legacy defaults and rejects malformed default metadata or duplicate goals", () => {
+    const legacy = defaults();
+    delete legacy.generalTask;
+    assert.deepEqual(migrate(legacy, base).generalTask, { name: "General" });
+    assert.throws(
+      () => validateData({ ...legacy, generalTask: { name: "" } }),
+      /task name/,
+    );
+    assert.throws(
+      () =>
+        validateData({
+          ...legacy,
+          goals: [
+            { id: "a", taskId: null, targetMinutes: 10, weekdays: all, enabled: true },
+            { id: "b", taskId: null, targetMinutes: 20, weekdays: all, enabled: true },
+          ],
+        }),
+      /daily goal/,
+    );
+  });
   it("deletes a task and goal while preserving historical time and import compatibility", () => {
     let data = work(tasks(), "reading", base, 2);
     const history = structuredClone(data.history);
@@ -167,13 +256,10 @@ describe("recurring task goals and durable interval attribution", () => {
       "same",
     );
     const before = remaining(d.timer, base + 40 * minute);
-    const snapshot = JSON.stringify(d);
-    assert.throws(() => select(d, "coding", base + 40 * minute));
-    assert.equal(JSON.stringify(d), snapshot);
-    d = select(d, "coding", base + 40 * minute, true);
+    d = select(d, "coding", base + 40 * minute);
     assert.equal(remaining(d.timer, base + 40 * minute), before);
     assert.equal(d.timer.session!.id, "same");
-    d = select(d, "reading", base + 50 * minute, true);
+    d = select(d, "reading", base + 50 * minute);
     d = reduce(d, { type: "finish" }, base + 70 * minute);
     assert.equal(taskTotals(d, base + 80 * minute).get("reading"), 60 * minute);
     assert.equal(taskTotals(d, base + 80 * minute).get("coding"), 10 * minute);
@@ -181,7 +267,7 @@ describe("recurring task goals and durable interval attribution", () => {
   it("switches during breaks without moving recorded focus or restarting the break", () => {
     let d = reduce(select(tasks(), "reading"), { type: "start", minutes: 10 }, base);
     d = reduce(d, { type: "break", minutes: 5 }, base + 10 * minute);
-    d = select(d, "coding", base + 12 * minute, true);
+    d = select(d, "coding", base + 12 * minute);
     assert.equal(remaining(d.timer, base + 12 * minute), 3 * minute);
     d = reduce(d, { type: "skip" }, base + 13 * minute);
     assert.equal(taskTotals(d, base + 14 * minute).get("reading"), 10 * minute);
@@ -198,7 +284,7 @@ describe("recurring task goals and durable interval attribution", () => {
     ];
     d.timer.paused = true;
     d.timer.anchor = null;
-    d = select(d, "coding", base + 20 * minute, true);
+    d = select(d, "coding", base + 20 * minute);
     assert.equal(d.timer.paused, true);
     assert.equal(taskTotals(d, base + 30 * minute).get("reading"), 10 * minute);
     assert.equal(taskTotals(d, base + 30 * minute).get("coding"), undefined);
@@ -232,7 +318,7 @@ describe("recurring task goals and durable interval attribution", () => {
   });
   it("restores an active session repeatedly without double-counting", () => {
     let d = reduce(select(tasks(), "reading"), { type: "start", minutes: 25 }, base);
-    d = select(d, "coding", base + 10 * minute, true);
+    d = select(d, "coding", base + 10 * minute);
     for (let i = 0; i < 5; i++) {
       d = migrate(JSON.parse(JSON.stringify(d)), base + 20 * minute);
       d = reduce(d, { type: "tick" }, base + 20 * minute);

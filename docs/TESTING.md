@@ -32,30 +32,49 @@ GitHub Actions also runs CodeQL analysis, which must finish successfully for
 not executed by the local commands above. See [release setup](../.github/RELEASING.md)
 for repository enablement and permissions.
 
+## Popup sizing regression
+
+The browser test `keeps navigation and pages visible when the popup resizes to its
+content` repeatedly resizes the viewport to the rendered content, approximating
+Chrome's automatic popup sizing. It must converge for Timer, Tasks, Statistics,
+and Settings. All four menu destinations must remain fully visible and receive
+pointer events. Also load the built extension and open its native toolbar popup;
+fixed-size tab screenshots alone do not cover this behavior.
+
 ## Manual release checklist
 
 Load the exact packaged build in Chrome 120 or newer. Automated checks do not
 replace testing real website access, overlay rendering, or native notifications.
 
-1. **Timers:** start with the timer button and keyboard. Close/reopen the popup,
+1. **Timers:** start with the time circle and keyboard. Close/reopen the popup,
    restart Chrome, and sleep/wake across a deadline. Verify focused time stops at
    the target and the session saves once after the 30-second action window. Repeat
    with notifications disabled and dismissed. No extra idle time should be logged.
 2. **Notification actions:** choose Take a break and Repeat session in separate
    runs. Verify the saved break duration or a fresh session with the same task and
    original duration. Test native notification delivery, expiry, and OS restrictions.
-   Old notifications must not affect a newer session.
+   Old notifications must not affect a newer session. Toolbar icon update failures
+   must not suppress completion sound or notification delivery.
+   Test **Completion sound** with the popup closed during full-screen video and
+   with banners disabled. Verify the preview, mute toggle, focus and break chimes,
+   and no duplicate chimes after worker recovery. Device and Chrome volume must be on.
+   With **Keep counting after target** enabled, verify the reminder fires once,
+   blocking ends at the target, and all overtime is saved on End focus or Take a break.
+   Toggle the preference during the countdown and verify the current session follows
+   the new value. Changes after the target apply to future sessions.
 3. **Blocking:** grant website access and configure a domain before starting. Check
    new visits, already-open tabs, subdomains, and restored tabs. Unlisted websites
    should remain usable. Verify the overlay blocks mouse/keyboard interaction,
    cannot be dismissed with Escape, and disappears at the target. Test permission
-   denial and revocation. End focus from the blocking screen and check partial time.
+   denial and revocation. Check overlay failures fall back to the blocking page
+   only for a still-blocked tab with site access; closed, changed, discarded, and
+   expired tabs must be left alone. End focus from the blocking screen and check partial time.
 4. **Controls:** verify no pause, extension, break, or finish controls during the
    countdown. Blocklist changes, import, and reset must stay locked during active
    sessions. Breaks expose only End break and return home when ended or expired.
 5. **Tasks and goals:** create, rename, select, switch, archive, and restore tasks.
    Verify selected styling, disabled goals, scheduled weekdays, Quick Focus, and
-   confirmation before switching. Recorded time must retain its original task.
+   immediate task switching without confirmation. Recorded time must retain its original task.
 6. **Statistics:** check calendar week/month/year navigation, synchronized task totals,
    28–31 day months, 12 monthly year bars, upcoming dates, older session expansion,
    midnight boundaries, and partial-session labels. No future

@@ -17,7 +17,7 @@ export async function installFocusOverlay() {
       anchor: number | null;
       session: { focusMs: number; targetMs: number } | null;
     };
-    settings: { blocking: boolean; sites: string[] };
+    settings: { blocking: boolean; sites: string[]; theme?: string };
   };
   let latest: OverlayData | undefined;
   const hide = () => {
@@ -117,7 +117,10 @@ export async function installFocusOverlay() {
     // A single local deadline also clears the warning if the worker's alarm is
     // delayed. Visibility/wake checks correct throttled timers and clock changes.
     deadlineTimer = setTimeout(() => update(data), Math.min(left, 2147483647));
-    if (host?.isConnected) return;
+    if (host?.isConnected) {
+      dialog?.setAttribute("data-theme", data.settings.theme ?? "system");
+      return;
+    }
     host = document.createElement("div");
     const shadow = host.attachShadow({ mode: "closed" });
     const style = new CSSStyleSheet();
@@ -127,20 +130,27 @@ export async function installFocusOverlay() {
         all: initial
       }
       dialog {
+        --panel: #fffefa;
+        --ink: #3b2e56;
+        --muted: #65587d;
+        --line: #c5b5e1;
+        --action: #ffd6b1;
+        --action-ink: #49345d;
+        --danger: #a13d5d;
         box-sizing: border-box;
         position: fixed;
         inset: 0;
         margin: auto;
-        width: min(360px,calc(100vw - 40px));
-        max-height: calc(100vh - 40px);
+        width: min(300px,calc(100vw - 32px));
+        max-height: calc(100vh - 32px);
         overflow: auto;
         overscroll-behavior: contain;
-        padding: 32px;
-        border: 1px solid #c5b5e1;
-        border-radius: 20px;
-        background: #f7f2ff;
-        color: #3b2e56;
-        font: 14px/1.6 system-ui,sans-serif;
+        padding: 20px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--panel);
+        color: var(--ink);
+        font: 12px/1.6 "Trebuchet MS","Segoe UI",Arial,sans-serif;
         text-align: center;
         box-shadow: none
       }
@@ -149,35 +159,35 @@ export async function installFocusOverlay() {
         background: rgba(0,0,0,.45)
       }
       h1 {
-        font-size: 25px;
+        font-size: 24px;
         font-weight: 500;
         letter-spacing: -.6px;
         line-height: 1.25;
-        margin: 22px 0 14px
+        margin: 16px 0 12px
       }
       p {
         margin: 12px 0;
-        color: #65587d
+        color: var(--muted)
       }
       .brand {
         font-size: 22px;
         letter-spacing: -1px;
-        color: #3b2e56
+        color: var(--ink)
       }
       button {
         display: block;
         width: 100%;
-        margin-top: 24px;
-        padding: 12px 14px;
+        margin-top: 16px;
+        padding: 10px;
         border: 0;
         border-radius: 10px;
-        background: #ffd6b1;
-        color: #49345d;
-        font: 500 13px system-ui;
+        background: var(--action);
+        color: var(--action-ink);
+        font: 500 11px "Trebuchet MS","Segoe UI",Arial,sans-serif;
         cursor: pointer
       }
       button:focus-visible {
-        outline: 2px solid #3b2e56;
+        outline: 2px solid var(--ink);
         outline-offset: 4px
       }
       button:disabled {
@@ -185,14 +195,27 @@ export async function installFocusOverlay() {
         cursor: wait
       }
       .note {
-        font-size: 12px
+        font-size: 11px
       }
       .error {
-        color: #a13d5d
+        color: var(--danger)
+      }
+      dialog[data-theme="dark"] {
+        --panel: #453657; --ink: #f7efff; --muted: #d2c2e6;
+        --line: #5a496f; --action: #68465b; --action-ink: #fff1e8;
+        --danger: #ffc4b7; color-scheme: dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        dialog:not([data-theme="light"]) {
+          --panel: #453657; --ink: #f7efff; --muted: #d2c2e6;
+          --line: #5a496f; --action: #68465b; --action-ink: #fff1e8;
+          --danger: #ffc4b7; color-scheme: dark;
+        }
       }
     `,
     );
     dialog = document.createElement("dialog");
+    dialog.setAttribute("data-theme", data.settings.theme ?? "system");
     dialog.setAttribute("aria-label", "Website paused during focus");
     const brand = document.createElement("div");
     brand.className = "brand";

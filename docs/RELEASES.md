@@ -25,7 +25,7 @@ by GitHub for dependency updates; it is not another release step.
 
 After this workflow is merged to main, open **Actions → Release Flow →
 Run workflow** and choose **main**. Select **bug-fix** for the next patch version,
-or **feature** for the next minor version. You do not need to enter a version.
+**feature** for the next minor version, or **major-release** for the next major version.
 You can leave the summary blank. Existing Unreleased notes are used when present;
 otherwise the workflow generates notes from merged PR titles and commits since
 the current version was prepared. Later changes to package scripts do not reset

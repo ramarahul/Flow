@@ -8,14 +8,20 @@ export interface Task {
 }
 export interface DailyGoal {
   id: string;
-  taskId: string;
+  taskId: string | null;
   targetMinutes: number;
   weekdays: number[];
   enabled: boolean;
 }
 export type GoalInput = Pick<DailyGoal, "targetMinutes" | "weekdays" | "enabled">;
 export type TaskAction =
-  | { type: "saveTask"; taskId?: string; name: string; icon?: string; goal: GoalInput }
+  | {
+      type: "saveTask";
+      taskId?: string | null;
+      name: string;
+      icon?: string;
+      goal: GoalInput;
+    }
   | { type: "archiveTask"; taskId: string; archived: boolean }
   | { type: "deleteTask"; taskId: string };
 function taskName(raw: unknown) {
@@ -31,6 +37,13 @@ function taskIcon(raw: unknown) {
   if (typeof raw !== "string" || Array.from(raw).length > 8)
     throw new Error("Use one short icon or emoji.");
   return raw.trim() || undefined;
+}
+export function validateGeneralTask(raw: unknown): Pick<Task, "name" | "icon"> {
+  if (raw === undefined) return { name: "General" };
+  if (!raw || typeof raw !== "object" || Array.isArray(raw))
+    throw new Error("Invalid default task details.");
+  const details = raw as Record<string, unknown>;
+  return { name: taskName(details.name), icon: taskIcon(details.icon) };
 }
 export function validateGoal(raw: GoalInput): GoalInput {
   if (
@@ -60,7 +73,7 @@ export function validateCatalog(
     !Array.isArray(tasks) ||
     !Array.isArray(goals) ||
     tasks.length > 1000 ||
-    goals.length > 1000
+    goals.length > 1001
   )
     throw new Error(
       "Invalid task or goal records. Your stored data has not been replaced.",
@@ -68,7 +81,7 @@ export function validateCatalog(
   const ids = new Set<string>(),
     names = new Set<string>(),
     goalIds = new Set<string>(),
-    goalTasks = new Set<string>();
+    goalTasks = new Set<string | null>();
   const checkedTasks = tasks.map((task: Task) => {
     if (
       !task ||
@@ -91,7 +104,7 @@ export function validateCatalog(
       typeof goal.id !== "string" ||
       !goal.id ||
       goalIds.has(goal.id) ||
-      !ids.has(goal.taskId) ||
+      (goal.taskId !== null && !ids.has(goal.taskId)) ||
       goalTasks.has(goal.taskId)
     )
       throw new Error("Invalid daily goal records.");
@@ -126,6 +139,7 @@ export function updateTasks(data: Data, action: TaskAction, id: string) {
     icon = taskIcon(action.icon),
     goal = validateGoal(action.goal);
   if (
+    (action.taskId !== null || name !== (data.generalTask?.name ?? "General")) &&
     data.tasks.some(
       (task) =>
         task.id !== action.taskId &&
@@ -135,7 +149,9 @@ export function updateTasks(data: Data, action: TaskAction, id: string) {
     throw new Error("A task with this name already exists. Check archived tasks too.");
   let task = data.tasks.find((task) => task.id === action.taskId);
   if (action.taskId && !task) throw new Error("Task not found.");
-  if (!task) {
+  if (action.taskId === null) {
+    data.generalTask = { name, icon };
+  } else if (!task) {
     if (data.tasks.length >= 1000) throw new Error("You can keep up to 1000 tasks.");
     task = { id, name, icon, archived: false };
     data.tasks.push(task);
@@ -143,7 +159,8 @@ export function updateTasks(data: Data, action: TaskAction, id: string) {
     task.name = name;
     task.icon = icon;
   }
-  const existing = data.goals.find((item) => item.taskId === task!.id);
+  const taskId = action.taskId === null ? null : task!.id;
+  const existing = data.goals.find((item) => item.taskId === taskId);
   if (existing) Object.assign(existing, goal);
-  else data.goals.push({ id: `goal-${id}`, taskId: task.id, ...goal });
+  else data.goals.push({ id: `goal-${id}`, taskId, ...goal });
 }

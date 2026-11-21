@@ -19,6 +19,28 @@ try {
             $rectangle = New-Object System.Drawing.Rectangle(0, 0, $size, $size)
             $graphics.DrawImage($source, $rectangle, 0, 0, $source.Width, $source.Height, [System.Drawing.GraphicsUnit]::Pixel, $attributes)
             $bitmap.Save((Join-Path $iconDirectory "$size.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+            if ($size -in @(16, 32)) {
+                # A contrasting play symbol distinguishes running focus from the idle clock.
+                $graphics.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceOver
+                $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+                $face = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml('#7052b5'))
+                $unit = $size / 16.0
+                $play = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml('#fffefa'))
+                try {
+                    $graphics.FillEllipse($face, [single](2 * $unit), [single](2 * $unit), [single](12 * $unit), [single](12 * $unit))
+                    $triangle = [System.Drawing.PointF[]]@(
+                        [System.Drawing.PointF]::new([single](6.5 * $unit), [single](4.8 * $unit)),
+                        [System.Drawing.PointF]::new([single](6.5 * $unit), [single](11.2 * $unit)),
+                        [System.Drawing.PointF]::new([single](11.2 * $unit), [single](8 * $unit))
+                    )
+                    $graphics.FillPolygon($play, $triangle)
+                    $bitmap.Save((Join-Path $iconDirectory "running-$size.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+                }
+                finally {
+                    $face.Dispose()
+                    $play.Dispose()
+                }
+            }
         }
         finally {
             $attributes.Dispose()

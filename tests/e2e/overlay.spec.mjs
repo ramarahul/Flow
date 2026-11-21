@@ -2,7 +2,7 @@ import { test, expect, chromium } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { transformWithOxc } from "vite";
 
-test("locks document and nested scrolling while the warning is open, then restores the page", async () => {
+test("locks document and nested scrolling while the warning is open, then restores the page", async ({}, testInfo) => {
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({
@@ -77,6 +77,15 @@ test("locks document and nested scrolling while the warning is open, then restor
     expect(await positions()).toEqual(original);
     expect(await page.evaluate(() => window.pageClicks)).toBe(0);
     expect(await page.evaluate(() => window.warning.open)).toBe(true);
+    expect(
+      await page.evaluate(() => window.warning.getBoundingClientRect().width),
+    ).toBeLessThanOrEqual(300);
+    await page.screenshot({ path: testInfo.outputPath("overlay-light.png") });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect
+      .poll(() => page.evaluate(() => getComputedStyle(window.warning).backgroundColor))
+      .toBe("rgb(69, 54, 87)");
+    await page.screenshot({ path: testInfo.outputPath("overlay-dark.png") });
     // Check cancellation directly as well as native wheel behavior.
     expect(
       await page.evaluate(() =>
@@ -95,8 +104,8 @@ test("locks document and nested scrolling while the warning is open, then restor
         ),
       ),
     ).toBe(false);
-    await page.setViewportSize({ width: 300, height: 320 });
-    await page.mouse.move(150, 160);
+    await page.setViewportSize({ width: 300, height: 240 });
+    await page.mouse.move(150, 120);
     await page.mouse.wheel(0, 600);
     await expect
       .poll(() => page.evaluate(() => window.warning.scrollTop))

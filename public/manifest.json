@@ -8,6 +8,7 @@
     "storage",
     "alarms",
     "notifications",
+    "offscreen",
     "scripting",
     "declarativeNetRequestWithHostAccess"
   ],

@@ -23,19 +23,43 @@ export function shouldBlock(data: Data, value?: string): boolean {
   }
 }
 
-export async function blockOpenTab(data: Data, id: number) {
+async function blockableTab(data: Data, id: number) {
   let tab: chrome.tabs.Tab;
   try {
     tab = await chrome.tabs.get(id);
   } catch {
     return;
   } // A tab can close after the query.
-  // Re-read the URL so a tab that has navigated away is left alone.
-  if (!shouldBlock(data, tab.pendingUrl ?? tab.url)) return;
-  await chrome.scripting.executeScript({
-    target: { tabId: id },
-    func: installFocusOverlay,
-  });
+  if (tab.discarded || !shouldBlock(data, tab.pendingUrl ?? tab.url)) return;
+  return tab;
+}
+
+export async function blockOpenTab(data: Data, id: number) {
+  if (!(await blockableTab(data, id))) return;
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: id },
+      func: installFocusOverlay,
+    });
+  } catch (error) {
+    const tab = await blockableTab(data, id);
+    if (!tab) return;
+    const url = new URL((tab.pendingUrl ?? tab.url)!);
+    const permitted = await chrome.permissions.contains({
+      origins: [`${url.protocol}//${url.hostname}/*`],
+    });
+    if (!permitted) throw error;
+    // Recheck after the permission lookup: never redirect a closed, changed, or expired tab.
+    const current = await blockableTab(data, id);
+    if (!current || new URL((current.pendingUrl ?? current.url)!).origin !== url.origin)
+      return;
+    try {
+      await chrome.tabs.update(id, { url: chrome.runtime.getURL("blocked.html") });
+    } catch (redirectError) {
+      if (!(await blockableTab(data, id))) return;
+      throw new AggregateError([error, redirectError], "Both blocking methods failed.");
+    }
+  }
 }
 
 export async function blockOpenTabs(data: Data) {
@@ -59,5 +83,6 @@ export async function blockOpenTabs(data: Data) {
   if (failed.length)
     throw new Error(
       `Unable to show the focus warning in ${failed.length} open tab(s). Check Flow's site access in Chrome and reopen Flow to retry.`,
+      { cause: new AggregateError(failed.map((result) => result.reason)) },
     );
 }
