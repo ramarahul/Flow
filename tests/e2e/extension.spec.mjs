@@ -920,10 +920,11 @@ test("fills the circle bottom to top for daily goals without moving the timer", 
   expect(await page.locator(".timer-circle").boundingBox()).toEqual(before);
 });
 
-test("persists keep counting and records overtime until explicitly ended", async ({
+test("enables keep counting during focus and records overtime until explicitly ended", async ({
   extension,
 }) => {
   const { page, worker } = extension;
+  await page.getByRole("button", { name: "Start 10 minute timer" }).click();
   await navigate(page, "Settings");
   const preference = page.getByRole("checkbox", { name: "Keep counting after target" });
   await expect(preference).not.toBeChecked();
@@ -935,7 +936,6 @@ test("persists keep counting and records overtime until explicitly ended", async
     page.getByRole("checkbox", { name: "Keep counting after target" }),
   ).toBeChecked();
   await navigate(page, "Timer");
-  await page.getByRole("button", { name: "Start 10 minute timer" }).click();
   await expire(worker, page);
   const readout = page.getByRole("timer", { name: "Total focus time, counting up" });
   await expect(readout).toBeVisible();

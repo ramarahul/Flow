@@ -312,6 +312,12 @@ export function reduce(
   }
   if (action.type === "settings") {
     d.settings = validateSettings({ ...d.settings, ...action.settings });
+    if (
+      action.settings.keepCounting !== undefined &&
+      t.mode === "focus" &&
+      remaining(t, now) > 0
+    )
+      t.keepCounting = d.settings.keepCounting;
     return d;
   }
   if (action.type === "deleteTask") {

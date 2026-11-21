@@ -58,8 +58,9 @@ and returns home. Breaks start only when requested; ending a break returns home 
 
 Enable **Keep counting after target** in Settings to continue tracking focus until
 you choose **End focus** or **Take a break**. The target still triggers a completion
-alert, and website blocking ends at the target. This option is off by default and
-applies to new sessions; all additional focus time is included in statistics.
+alert, and website blocking ends at the target. This option is off by default.
+You can change it during the countdown or before starting a session. All additional
+focus time is included in statistics.
 
 **Completion sound** plays one short notification bell even with the popup closed or a video
 in full screen, independently of notification banners. Use **Test completion sound**

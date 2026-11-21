@@ -60,7 +60,8 @@ replace testing real website access, overlay rendering, or native notifications.
    and no duplicate chimes after worker recovery. Device and Chrome volume must be on.
    With **Keep counting after target** enabled, verify the reminder fires once,
    blocking ends at the target, and all overtime is saved on End focus or Take a break.
-   Preference changes apply to new sessions; the default still stops at the target.
+   Toggle the preference during the countdown and verify the current session follows
+   the new value. Changes after the target apply to future sessions.
 3. **Blocking:** grant website access and configure a domain before starting. Check
    new visits, already-open tabs, subdomains, and restored tabs. Unlisted websites
    should remain usable. Verify the overlay blocks mouse/keyboard interaction,

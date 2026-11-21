@@ -353,7 +353,8 @@ function App() {
               </label>
               <p className="quiet" id="setting-counting-help">
                 When off, stop at the target. When on, count until you end focus or take a
-                break. Applies to new sessions.
+                break. Changes apply to your current focus session before it reaches its
+                target and to future sessions.
               </p>
             </section>
             <section className="settings-group" aria-labelledby="appearance-heading">

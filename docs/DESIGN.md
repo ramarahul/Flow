@@ -347,8 +347,8 @@ whenever focus is actively counting, and "Flow" when idle and acknowledged.
 No blinking or full-screen interruptions. An optional completion chime plays in a
 temporary offscreen document, independently of banners and without accessing the
 video page. Settings includes a sound toggle and preview. Keep counting after target
-is off by default and applies to new sessions; overtime preserves the same session
-and reveals the existing end-focus and break actions.
+is off by default. Changes apply during the countdown and to future sessions.
+Overtime preserves the same session and reveals the existing end-focus and break actions.
 
 Give icon-only controls native hover titles and accessible names; do not rely on
 the icon alone. Native titles avoid clipping tooltips inside scroll containers.

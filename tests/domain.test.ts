@@ -45,23 +45,33 @@ describe("continuous focus sessions", () => {
     ]);
     assert.equal(data.timer.mode, "idle");
   });
-  it("applies keep-counting changes to new sessions without changing the running session", () => {
+  it("applies keep-counting changes to the current countdown and future sessions", () => {
     let data = start();
     data = reduce(data, { type: "settings", settings: { keepCounting: true } }, 2000);
     data = reduce(data, { type: "completeTarget" }, 25 * minute + 2000);
-    assert.equal(data.timer.anchor, null);
-    assert.equal(data.timer.keepCounting, false);
-    data = reduce(data, { type: "repeat" }, 25 * minute + 3000);
+    assert.equal(data.timer.anchor, 1000);
+    assert.equal(data.timer.completedAt, undefined);
     assert.equal(data.timer.keepCounting, true);
     data = reduce(
       data,
       { type: "settings", settings: { keepCounting: false } },
       25 * minute + 4000,
     );
-    data = reduce(data, { type: "completeTarget" }, 51 * minute);
-    assert.equal(data.timer.completedAt, undefined);
-    assert.notEqual(data.timer.anchor, null);
     assert.equal(data.timer.keepCounting, true);
+    data = reduce(data, { type: "repeat" }, 25 * minute + 5000);
+    assert.equal(data.timer.keepCounting, false);
+    data = reduce(
+      data,
+      { type: "settings", settings: { keepCounting: true } },
+      26 * minute,
+    );
+    data = reduce(
+      data,
+      { type: "settings", settings: { keepCounting: false } },
+      27 * minute,
+    );
+    data = reduce(data, { type: "completeTarget" }, 50 * minute + 5000);
+    assert.equal(data.timer.anchor, null);
   });
   it("persists the liquid effect preference and validates older backups", () => {
     assert.equal(defaults().settings.liquidEffect, true);
