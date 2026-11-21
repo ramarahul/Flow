@@ -41,13 +41,14 @@ and accessible name explain its action.
 
 Use one labeled Menu disclosure for Timer, Tasks, Statistics, and Settings.
 Keep it closed initially and close it on selection, Escape, and outside clicks.
+Pair text labels with familiar icons in full-width rows. Mark the current page with stronger text and
+a slim accent at the start of the row. Keep the keyboard focus outline distinct.
 Show the Flow wordmark only on the timer. Secondary pages use their title in
 the same header position: Your Tasks, Your Focus, and Your Flow (Settings).
 Do not stack a page title beneath the wordmark or introduce a large back bar.
-Both task entry points open the same screen. The task editor alone has a compact
-Back to tasks control and a secondary heading. Empty statistics describe the
-missing data; direct people to Timer in the menu rather than saying a session
-starts on the statistics page.
+Tasks, Statistics, and Settings include a Back to timer button in the header.
+Both task entry points open the same screen. The task editor has a compact Back to
+tasks control and a secondary heading. Empty statistics describe the missing data.
 
 ## Color roles
 

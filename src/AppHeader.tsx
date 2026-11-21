@@ -1,5 +1,12 @@
 import { useEffect, useRef } from "react";
-import { BarChart3, ChevronDown, Clock3, ListTodo, Settings2 } from "lucide-react";
+import {
+  ArrowLeft,
+  BarChart3,
+  ChevronDown,
+  Clock3,
+  ListTodo,
+  Settings2,
+} from "lucide-react";
 
 export type View = "timer" | "tasks" | "stats" | "settings";
 const destinations = [
@@ -36,6 +43,12 @@ export function AppHeader({
     };
   }, []);
 
+  const navigate = (destination: View) => {
+    if (menu.current) menu.current.open = false;
+    onNavigate(destination);
+    menu.current?.querySelector("summary")?.focus();
+  };
+
   return (
     <header className="app-header">
       {view === "timer" ? (
@@ -43,13 +56,23 @@ export function AppHeader({
           flow<span className="brand-dot">.</span>
         </span>
       ) : (
-        <h1>
-          {view === "tasks"
-            ? "Your Tasks"
-            : view === "stats"
-              ? "Your Focus"
-              : "Your Flow"}
-        </h1>
+        <div className="app-header-title">
+          <button
+            className="icon"
+            aria-label="Back to timer"
+            title="Back to timer"
+            onClick={() => navigate("timer")}
+          >
+            <ArrowLeft size={18} aria-hidden="true" />
+          </button>
+          <h1>
+            {view === "tasks"
+              ? "Your Tasks"
+              : view === "stats"
+                ? "Your Focus"
+                : "Your Flow"}
+          </h1>
+        </div>
       )}
       <details
         className="app-menu"
@@ -59,22 +82,17 @@ export function AppHeader({
             event.currentTarget.open = false;
         }}
       >
-        <summary title="Open navigation">
+        <summary>
           Menu <ChevronDown size={14} aria-hidden="true" />
         </summary>
         <nav aria-label="Main navigation">
           {destinations.map(({ view: destination, label, icon: Icon }) => (
             <button
               key={destination}
-              title={label}
               aria-current={view === destination ? "page" : undefined}
-              onClick={() => {
-                if (menu.current) menu.current.open = false;
-                onNavigate(destination);
-                menu.current?.querySelector("summary")?.focus();
-              }}
+              onClick={() => navigate(destination)}
             >
-              <Icon size={17} aria-hidden="true" />
+              <Icon size={16} aria-hidden="true" />
               {label}
             </button>
           ))}

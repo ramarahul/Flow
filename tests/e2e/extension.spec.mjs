@@ -120,26 +120,37 @@ test("unveils the menu smoothly without resizing and reveals keyboard focus imme
   await page.emulateMedia({ reducedMotion: "no-preference" });
   const nav = page.getByRole("navigation", { name: "Main navigation" });
   const menu = page.locator(".app-menu");
+  const trigger = menu.locator("summary");
   for (const theme of ["light", "dark"]) {
     await command(page, { type: "settings", settings: { theme } });
     const before = await page.locator("main").boundingBox();
-    await page.getByText("Menu", { exact: true }).click();
+    await trigger.focus();
+    await trigger.press(theme === "light" ? "Enter" : "Space");
     await expect(nav).toHaveCSS("animation-name", "menu-unveil");
+    const current = nav.locator('[aria-current="page"]');
+    await expect(current).toHaveText("Timer");
     const stages = await nav.evaluate((element) => {
       const animation = element.getAnimations()[0];
       animation.pause();
       animation.currentTime = 0;
       const start = getComputedStyle(element).clipPath;
       animation.currentTime = 110;
-      return { start, middle: getComputedStyle(element).clipPath };
+      const middle = getComputedStyle(element).clipPath;
+      animation.finish();
+      return { start, middle };
     });
     expect(stages.middle).not.toBe(stages.start);
     expect(await page.locator("main").boundingBox()).toEqual(before);
     await page
       .locator("main")
-      .screenshot({ path: testInfo.outputPath(`menu-unveiling-${theme}.png`) });
+      .screenshot({ path: testInfo.outputPath(`menu-${theme}.png`) });
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("button", { name: "Timer", exact: true })).toBeFocused();
+    await expect(current).toBeFocused();
+    await expect(current).toHaveCSS("outline-style", "solid");
+    for (const name of ["Tasks", "Statistics", "Settings"]) {
+      await page.keyboard.press("Tab");
+      await expect(nav.getByRole("button", { name, exact: true })).toBeFocused();
+    }
     await expect(nav).toHaveCSS("animation-name", "none");
     await expect(nav).toHaveCSS("clip-path", "none");
     await page.keyboard.press("Escape");
@@ -246,6 +257,51 @@ async function openTasks(page) {
   await page.getByRole("button", { name: /Select task/ }).press("Enter");
   await page.getByRole("button", { name: "Manage tasks", exact: true }).click();
 }
+
+test("returns directly from Tasks to the timer through either entry point", async ({
+  extension,
+}, testInfo) => {
+  const { page, worker } = extension;
+  await page.setViewportSize({ width: 300, height: 340 });
+  const back = page.getByRole("button", { name: "Back to timer", exact: true });
+  const timer = page.getByRole("region", { name: "Session timer" });
+  await openTasks(page);
+  await expect(back).toBeInViewport({ ratio: 1 });
+  await page.screenshot({ path: testInfo.outputPath("tasks-back-light.png") });
+  await back.click();
+  await expect(timer).toBeVisible();
+
+  await command(page, { type: "settings", settings: { theme: "dark" } });
+  await page.getByRole("button", { name: "Start 10 minute timer" }).click();
+  await expect.poll(async () => (await stored(worker)).timer.mode).toBe("focus");
+  const session = (await stored(worker)).timer.session;
+  await navigate(page, "Tasks");
+  await back.focus();
+  await page.screenshot({ path: testInfo.outputPath("tasks-back-dark.png") });
+  await page.keyboard.press("Enter");
+  await expect(timer).toBeVisible();
+  await expect(page.locator(".app-menu summary")).toBeFocused();
+  expect((await stored(worker)).timer.session).toEqual(session);
+});
+
+test("returns directly from Statistics and Settings to the timer", async ({
+  extension,
+}, testInfo) => {
+  const { page } = extension;
+  await page.setViewportSize({ width: 300, height: 340 });
+  for (const theme of ["light", "dark"]) {
+    await command(page, { type: "settings", settings: { theme } });
+    for (const name of ["Statistics", "Settings"]) {
+      await navigate(page, name);
+      const back = page.getByRole("button", { name: "Back to timer", exact: true });
+      await expect(back).toBeInViewport({ ratio: 1 });
+      await page.screenshot({ path: testInfo.outputPath(`${name}-${theme}.png`) });
+      await back.press("Enter");
+      await expect(page.getByRole("region", { name: "Session timer" })).toBeVisible();
+      await expect(page.locator(".app-menu summary")).toBeFocused();
+    }
+  }
+});
 
 test("switches tasks in place with a compact keyboard-accessible dropdown", async ({
   extension,

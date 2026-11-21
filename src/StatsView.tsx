@@ -262,11 +262,7 @@ export function StatsView({ data, now }: { data: Data; now: number }) {
         {historyOpen && (
           <>
             {!data.history.length ? (
-              <p className="history-empty">
-                No saved sessions yet.
-                <br />
-                Go to Timer in the menu to start a session.
-              </p>
+              <p className="history-empty">No saved sessions yet.</p>
             ) : (
               <div className="session-history-list">
                 {data.history
